@@ -47,10 +47,9 @@ declare -a config_file_options=(".env" "letsencrypt-routeros.settings")
 ## @details
 ## This is the list of services to attempt to configure.  These generally
 ## don't need to be changed.  They're in an array because I didn't want to
-## write the same code twice, once for each www-ssl and api-ssl.  If Mikrotik
-## adds new core services that require SSL / TLS certificates, they can be
-## added here.
-declare -a services=("www-ssl" "api-ssl")
+## write the same code a bunch of times.  If Mikrotik adds new core services
+## that require SSL / TLS certificates, they can be added here.
+declare -a services=("www-ssl" "api-ssl" "sstp")
 
 
 ## @fn usage_help()
@@ -356,15 +355,29 @@ configure_services() {
   for service in "${services[@]}" ; do
 
     echo "Configuring $service to use $cert_name"
-    if $routeros_ssh "/ip service set $service certificate=$cert_name" ; then
-      echo "  Service configuration complete."
-    else
-      echo "  Could not configure service" 1>&2
-      return $((service_number + 1))
-    fi
+
+    case "$service" in
+      www-ssl|api-ssl)
+        if $routeros_ssh "/ip service set $service certificate=$cert_name" ; then
+          echo "  Service configuration complete."
+        else
+          echo "  Could not configure service" 1>&2
+        return $((service_number + 1))
+        fi ;;
+      sstp)
+        if $routeros_ssh "/interface sstp-server server set certificate=$cert_name" ; then
+          echo "  SSTP configuration complete."
+        else
+          echo "  Could not configure SSTP." 1>&2
+          return $((service_number + 1))
+       fi ;;
+      *)
+        echo "Unknown service '$service'" 1>&2 ; exit 100 ;;
+    esac
     service_number=$((service_number + 1))
   done
 }
+
 
 
 ## @fn setup()
@@ -442,11 +455,12 @@ main() {
     source "$CONFIG_FILE"
   fi
 
-  while getopts "C:d:h:K:k:p:u:i?" opt ; do
+  while getopts "C:d:H:hK:k:p:u:i?" opt ; do
     case "$opt" in
       C) CERTIFICATE="$OPTARG" ;;
       d) DOMAIN="$OPTARG" ;;
-      h) ROUTEROS_HOST="$OPTARG" ;;
+      H) ROUTEROS_HOST="$OPTARG" ;;
+      h) usage_help && exit 0 ;;
       K) KEY="$OPTARG" ;;
       k) ROUTEROS_PRIVATE_KEY="$OPTARG" ;;
       p) ROUTEROS_SSH_PORT="$OPTARG" ;;

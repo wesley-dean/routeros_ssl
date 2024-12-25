@@ -43,7 +43,13 @@ entirely possible so long as one is prepared to accept the risk.
 This tool makes use of [OpenSSH](https://openssh.org/) which is developed and
 maintained by the makers of [OpenBSD](https://openbsd.org/).  The tool is
 essentially a Bash script, so it requires
-[GNU Bash](https://gnu.org/software/bash/).  
+[GNU Bash](https://gnu.org/software/bash/).
+
+Because the tool uses SSH to interact with RouterOS-based devices, the SSH
+service must be enabled on the RouterOS device and an administrative user that
+will be used is able to connect using SSH.  The port to which the SSH service
+is bound -- typically port 22 -- must be known and accessible via the network
+where this script will be run.
 
 The tool uses key-based authentication for logging in to the RouterOS device
 with SSH.  Therefore, the public portion of the key must be previously
@@ -69,9 +75,8 @@ exist first.
 
 The tool can be configured by several mechanisms:
 
-1. configuration file
-2. environment variable
-3. command line option
+1. configuration files
+2. command line options
 
 #### Configuration Files
 
@@ -115,3 +120,75 @@ The supported parameters include:
   typically found at `/etc/letsencrypt/live/$DOMAIN/cert.pem`
 - `KEY`: this is the path and filename of the private key, typically found at
   `/etc/letsencrypt/live/$DOMAIN/privkey.pem`
+
+#### Command Line Options
+
+Additionally, the script accepts several options at runtime as command line
+options:
+
+- -C [path / filename to the signed certificate; `CERTIFICATE`]
+- -d [domain associated with the certificate; `DOMAIN`]
+- -h show usage directions
+- -H [hostname of the RouterOS device; `ROUTEROS_HOST`]
+- -K [path / filename to the certificate private key; `KEY`]
+- -k [path / filename to the SSH private key; `$ROUTEROS_PRIVATE_KEY`]
+- -p [port on the RouterOS device where SSH is listening; `$ROUTEROS_SSH_PORT`]
+- -u [username of the user on the RouterOS device; `$ROUTEROS_USER`]
+
+Lastly, options may be provided positionally:
+
+1. `ROUTEROS_USER`
+2. `ROUTEROS_HOST`
+3. `ROUTEROS_SSH_PORT`
+4. `ROUTEROS_PRIVATE_KEY`
+5. `DOMAIN`
+
+For example:
+
+```bash
+$ letsencrypt-routeros.bash admin 192.168.1.1 22 ~/.ssh/id_rsa example.com
+```
+
+### Usage
+
+Assuming that the previously-mentioned requirements are met:
+- a signed certificate and its private key are available
+- the RouterOS device to be configured has SSH enabled
+- an administrative user has key-based authentication configured
+- that the private portion of the SSH key is available
+
+the script may be invoked the same was as most other Bash scripts.  It may be
+invoked on an ad-hoc basis from the command line, via cron script, as a
+[post-validation hook](https://eff-certbot.readthedocs.io/en/stable/using.html#pre-and-post-validation-hooks)
+run by Certbot, as a containerized service, etc..
+
+## Very Special Thanks
+
+This script was based on the file work by [kiprox](https://github.com/kiprox)
+and GPL3-licensed code uploaded to the
+[kiprox/mikrotik-ssl repo](https://github.com/kiprox/mikrotik-ssl) on
+[GitHub](https://GitHub.com/).
+
+### Changes From the Original Script
+
+Efforts were made to retain compatability with the original script with
+minimal changing required.  The logic used with the original script remains
+unchanged (with few small exceptions), so there is likely very little reason
+to change tools.
+
+1. the updated tool now refreshes the private key on the RouterOS device; this
+  should help in instances where the certificate is being changed (e.g., when
+  moving to/from a wildcard certificate)
+2. the updated tool now supports `.env` as a configuration file in addition to
+  `letsencrypt-routeros.settings` file that was previously supported
+3. additional error handling and reporting was added such for most steps,
+  failures result in the script throwing an error and exiting with a non-zero
+  result code
+4. flags may be passed at the command line to configure the tool in addition to
+  the positional variables that were previously supported
+5. it's now possible to specify the `CERTIFICATE` and `KEY` at runtime using
+  either a configuration file or the flag-based command line options
+6. the tool may be sourced so that the individual functions may be called in
+  the context of larger and/or more involved scripts
+7. support for `www-ssl` and `api-ssl` was added to the existing SSTP
+  support
