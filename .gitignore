@@ -3,3 +3,5 @@
 *.backup
 *.settings
 *.pem
+megalinter-reports/
+reports/

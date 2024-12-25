@@ -47,11 +47,9 @@ declare -a config_file_options=(".env" "letsencrypt-routeros.settings")
 ## @details
 ## This is the list of services to attempt to configure.  These generally
 ## don't need to be changed.  They're in an array because I didn't want to
-## write the same code twice, once for each www-ssl and api-ssl.  If Mikrotik
-## adds new core services that require SSL / TLS certificates, they can be
-## added here.
-declare -a services=("www-ssl" "api-ssl")
-
+## write the same code a bunch of times.  If Mikrotik adds new core services
+## that require SSL / TLS certificates, they can be added here.
+declare -a services=("www-ssl" "api-ssl" "sstp")
 
 ## @fn usage_help()
 ## @brief display help to the end-user
@@ -79,11 +77,10 @@ $0
 
 or use a configuration file:"
 
-  for config_file in "${config_file_options[@]}" ; do
+  for config_file in "${config_file_options[@]}"; do
     echo "* $config_file"
   done
 }
-
 
 ## @fn verify_connection()
 ## @brief verify that we can connect to the RouterOS device
@@ -101,7 +98,7 @@ or use a configuration file:"
 ## @endcode
 verify_connection() {
   echo "Checking connection to RouterOS"
-  if $routeros_ssh "/system resource print" ; then
+  if $routeros_ssh "/system resource print"; then
     echo "  Connected."
   else
     echo -e "
@@ -112,7 +109,6 @@ More info: https://wiki.mikrotik.com/wiki/Use_SSH_to_execute_commands_(DSA_key_l
     return 1
   fi
 }
-
 
 ## @fn verify_requirements()
 ## @brief verify that the local files we'll need are present and accessible
@@ -146,14 +142,14 @@ More info: https://wiki.mikrotik.com/wiki/Use_SSH_to_execute_commands_(DSA_key_l
 verify_requirements() {
   echo "Looking for '$CERTIFICATE'"
 
-  if [ -f "$CERTIFICATE" ] ; then
+  if [ -f "$CERTIFICATE" ]; then
     echo "Found"
   else
     echo "CERTIFICATE '$CERTIFICATE' NOT FOUND" 1>&2
     return 1
   fi
 
-  if [ -r "$CERTIFICATE" ] ; then
+  if [ -r "$CERTIFICATE" ]; then
     echo "Readable"
   else
     echo "CERTIFICATE '$CERTIFICATE' NOT READABLE" 1>&2
@@ -162,20 +158,19 @@ verify_requirements() {
 
   echo "Looking for key '$KEY'"
 
-  if [ -f "$KEY" ] ; then
+  if [ -f "$KEY" ]; then
     echo "Found"
   else
     echo "KEY '$KEY' NOT FOUND" 1>&2
     return 3
   fi
 
-  if [ -r "$KEY" ] ; then
+  if [ -r "$KEY" ]; then
     echo "Readable"
   else
     echo "KEY '$KEY' NOT READABLE" 1>&2
   fi
 }
-
 
 ## @fn upload_certificate()
 ## @brief upload the certificate to the RouterOS device
@@ -203,7 +198,6 @@ upload_certificate() {
   echo "Finished processing certificate"
 }
 
-
 ## @fn upload_key()
 ## @brief upload the private portion of the key to the RouterOS device
 ## @details
@@ -229,7 +223,6 @@ upload_key() {
 
   echo "Finished processing key"
 }
-
 
 ## @fn upload_file()
 ## @brief upload and import a file (certificate or key)
@@ -275,14 +268,14 @@ upload_file() {
   echo "Processing $local_file => $remote_file [$cert_name]"
 
   echo "Remove previous cert ($cert_name)"
-  if $routeros_ssh "/certificate remove [find name=$cert_name]" ; then
+  if $routeros_ssh "/certificate remove [find name=$cert_name]"; then
     echo "  Previous cert removed."
   else
     echo "  Could not remove previous cert" 1>&2
   fi
 
   echo "Upload file to RouterOS"
-  if $routeros_scp "$local_file" "$ROUTEROS_USER"@"$ROUTEROS_HOST":"$remote_file" ; then
+  if $routeros_scp "$local_file" "$ROUTEROS_USER"@"$ROUTEROS_HOST":"$remote_file"; then
     echo "  New file uploaded."
   else
     echo "  Could not upload new file" 1>&2
@@ -292,7 +285,7 @@ upload_file() {
   sleep 2
 
   echo "Import $remote_file to $cert_name"
-  if $routeros_ssh "/certificate import file-name=$remote_file passphrase=\"\"" ; then
+  if $routeros_ssh "/certificate import file-name=$remote_file passphrase=\"\""; then
     echo "  File imported."
   else
     echo "  Could not import file file" 1>&2
@@ -301,7 +294,6 @@ upload_file() {
 
   echo "Done processing $local_file"
 }
-
 
 ## @fn delete_file()
 ## @brief delete a file from the RouterOS device
@@ -323,13 +315,12 @@ delete_file() {
   filename="${1?Error: no filename specified}"
 
   echo "Delete file '$filename'"
-  if $routeros_ssh "/file remove $filename" ; then
+  if $routeros_ssh "/file remove $filename"; then
     echo "  File deleted."
   else
     echo "  Could not delete file" 1>&2
   fi
 }
-
 
 ## @configure_services()
 ## @brief configure the incoming services to use the newly imported cert / key
@@ -353,19 +344,35 @@ configure_services() {
   echo "Configuring services"
   service_number=0
 
-  for service in "${services[@]}" ; do
+  for service in "${services[@]}"; do
 
     echo "Configuring $service to use $cert_name"
-    if $routeros_ssh "/ip service set $service certificate=$cert_name" ; then
-      echo "  Service configuration complete."
-    else
-      echo "  Could not configure service" 1>&2
-      return $((service_number + 1))
-    fi
+
+    case "$service" in
+      www-ssl | api-ssl)
+        if $routeros_ssh "/ip service set $service certificate=$cert_name"; then
+          echo "  Service configuration complete."
+        else
+          echo "  Could not configure service" 1>&2
+          return $((service_number + 1))
+        fi
+           ;;
+      sstp)
+        if $routeros_ssh "/interface sstp-server server set certificate=$cert_name"; then
+          echo "  SSTP configuration complete."
+        else
+          echo "  Could not configure SSTP." 1>&2
+          return $((service_number + 1))
+        fi
+          ;;
+      *)
+        echo "Unknown service '$service'" 1>&2
+                                                 exit 100
+                                                          ;;
+    esac
     service_number=$((service_number + 1))
   done
 }
-
 
 ## @fn setup()
 ## @brief perform setup steps
@@ -394,7 +401,6 @@ setup() {
   delete_file "$key_file" || true
 }
 
-
 ## @fn cleanup()
 ## @brief cleanup after ourselves
 ## @details
@@ -418,7 +424,6 @@ cleanup() {
   delete_file "$key_file" || true
 }
 
-
 ## @fn main()
 ## @brief the program's primary function
 ## @details
@@ -433,20 +438,21 @@ cleanup() {
 main() {
   CONFIG_FILE="${CONFIG_FILE:-}"
 
-  for config_file in "${config_file_options[@]}" ; do
+  for config_file in "${config_file_options[@]}"; do
     [ -f "$config_file" ] && CONFIG_FILE="$config_file"
   done
 
-  if [ -f "$CONFIG_FILE" ] ; then
+  if [ -f "$CONFIG_FILE" ]; then
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
   fi
 
-  while getopts "C:d:h:K:k:p:u:i?" opt ; do
+  while getopts "C:d:H:hK:k:p:u:i?" opt; do
     case "$opt" in
       C) CERTIFICATE="$OPTARG" ;;
       d) DOMAIN="$OPTARG" ;;
-      h) ROUTEROS_HOST="$OPTARG" ;;
+      H) ROUTEROS_HOST="$OPTARG" ;;
+      h) usage_help && exit 0 ;;
       K) KEY="$OPTARG" ;;
       k) ROUTEROS_PRIVATE_KEY="$OPTARG" ;;
       p) ROUTEROS_SSH_PORT="$OPTARG" ;;
@@ -478,7 +484,6 @@ main() {
 
   cleanup "$DOMAIN.pem" "$DOMAIN.key" || exit 7
 }
-
 
 # if we're not being sourced and there's a function named `main`, run it
 [[ "$0" == "${BASH_SOURCE[0]}" ]] && [ "$(type -t "main")" == "function" ] && main "$@"
