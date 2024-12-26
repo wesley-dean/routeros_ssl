@@ -217,6 +217,20 @@ images tagged on commits, major, major.minor, and major.minor.patch releases.
 For reliability and repeatability, tagging to specific hashes is the
 recommended approach (rather than `latest`)
 
+###### Lets Encrypt Directory Permissions Issues
+
+The container runs as a non-privileged user (user 1000 aka `user`).  By
+default, `/etc/letsencrypt` is usually inaccessible by non-privileged users.
+Therefore, one may either:
+
+1. run the container as a privileged user (i.e., add `-u root`) to the command)
+2. allow user 1000 to access be able to access the contents of
+  `/etc/letsencrypt` with either `chown` and/or `chmod`
+
+There are risks associated with each approach.  Please consider reviewing the
+[certbot documentation on file locations and permissions](https://eff-certbot.readthedocs.io/en/stable/using.html#where-are-my-certificates)
+for more information.
+
 ##### Building the Image
 
 One may build the image locally without extraneous considerations:
