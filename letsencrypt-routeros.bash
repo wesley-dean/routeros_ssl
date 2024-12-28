@@ -51,6 +51,34 @@ declare -a config_file_options=(".env" "letsencrypt-routeros.settings")
 ## that require SSL / TLS certificates, they can be added here.
 declare -a services=("www-ssl" "api-ssl" "sstp")
 
+## @var ROUTEROS_SSH_OPTIONS
+## @brief any extra arguments to pass to ssh / scp
+declare ROUTEROS_SSH_OPTIONS="${ROUTEROS_SSH_OPTIONS:-}"
+
+## @var ROUTEROS_USER
+## @brief the RouterOS device's administrative user's username
+declare ROUTEROS_USER="${ROUTEROS_USER:-admin}"
+
+## @var ROUTEROS_PRIVATE_KEY
+## @brief path/filename to the ssh private key to use to connect to the device
+declare ROUTEROS_PRIVATE_KEY="${ROUTEROS_PRIVATE_KEY:-}"
+
+## @var ROUTEROS_HOST
+## @brief the hostname / IP address of the RouterOS device to update
+declare ROUTEROS_HOST="${ROUTEROS_HOST:-}"
+
+## @var DOMAIN
+## @brief the domain to use with the certificate
+declare DOMAIN="${DOMAIN:-}"
+
+## @var CERTIFICATE
+## @brief path/filename to the signed certificate to upload
+declare CERTIFICATE="${CERTIFICATE:-/etc/letsencrypt/$DOMAIN/live/cert.pem}"
+
+## @var KEY
+## @brief path/filename to the private key associated with the certificate
+declare KEY="${KEY:-/etc/letsencrypt/$DOMAIN/live/privkey.pem}"
+
 ## @fn usage_help()
 ## @brief display help to the end-user
 ## @details
@@ -74,6 +102,7 @@ $0
   -k [SSH Private Key]
   -p [RouterOS SSH Port]
   -u [RouterOS User]
+  -o [RouterOS SSH Options]
 
 or use a configuration file:"
 
@@ -436,18 +465,24 @@ cleanup() {
 ## main "$@" || exit $?
 ## @endcode
 main() {
+
   CONFIG_FILE="${CONFIG_FILE:-}"
 
-  for config_file in "${config_file_options[@]}"; do
-    [ -f "$config_file" ] && CONFIG_FILE="$config_file"
-  done
+  if [ -n "${CONFIG_FILE:-}" ]; then
+    for config_file in "${config_file_options[@]}"; do
+      [ -f "$config_file" ] && CONFIG_FILE="$config_file"
+    done
+  fi
 
   if [ -f "$CONFIG_FILE" ]; then
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
+  else
+    echo "Could not load CONFIG_FILE '$CONFIG_FILE'" 1>&2
+    exit 1
   fi
 
-  while getopts "C:d:H:hK:k:p:u:i?" opt; do
+  while getopts "C:d:H:hK:k:o:p:u:i?" opt; do
     case "$opt" in
       C) CERTIFICATE="$OPTARG" ;;
       d) DOMAIN="$OPTARG" ;;
@@ -455,6 +490,7 @@ main() {
       h) usage_help && exit 0 ;;
       K) KEY="$OPTARG" ;;
       k) ROUTEROS_PRIVATE_KEY="$OPTARG" ;;
+      o) ROUTEROS_SSH_OPTIONS="$OPTARG" ;;
       p) ROUTEROS_SSH_PORT="$OPTARG" ;;
       u) ROUTEROS_USER="$OPTARG" ;;
       ?) usage_help 1>&2 && exit 0 ;;
@@ -470,8 +506,8 @@ main() {
   CERTIFICATE="${CERTIFICATE:-/etc/letsencrypt/live/$DOMAIN/cert.pem}"
   KEY="${KEY:-/etc/letsencrypt/live/$DOMAIN/privkey.pem}"
 
-  routeros_ssh="ssh -i $ROUTEROS_PRIVATE_KEY $ROUTEROS_USER@$ROUTEROS_HOST -p $ROUTEROS_SSH_PORT"
-  routeros_scp="scp -q -P $ROUTEROS_SSH_PORT -i $ROUTEROS_PRIVATE_KEY"
+  routeros_ssh="ssh -i $ROUTEROS_PRIVATE_KEY $ROUTEROS_USER@$ROUTEROS_HOST -p $ROUTEROS_SSH_PORT $ROUTEROS_SSH_OPTIONS"
+  routeros_scp="scp -q -P $ROUTEROS_SSH_PORT -i $ROUTEROS_PRIVATE_KEY $ROUTEROS_SSH_OPTIONS"
 
   verify_requirements || exit 1
   verify_connection || exit 2
