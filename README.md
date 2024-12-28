@@ -129,6 +129,8 @@ The supported parameters include:
   typically found at `/etc/letsencrypt/live/$DOMAIN/cert.pem`
 - `KEY`: this is the path and filename of the private key, typically found at
   `/etc/letsencrypt/live/$DOMAIN/privkey.pem`
+- `ROUTEROS_SSH_OPTIONS`: these are any additional options to pass along to
+  `ssh` or `scp` (e.g., `-o PubkeyAcceptedAlgorithms=ssh-rsa`)
 
 #### Command Line Options
 
@@ -141,6 +143,7 @@ options:
 - -H [hostname of the RouterOS device; `ROUTEROS_HOST`]
 - -K [path / filename to the certificate private key; `KEY`]
 - -k [path / filename to the SSH private key; `$ROUTEROS_PRIVATE_KEY`]
+- -o [additional options to pass to ssh/scp; `$ROUTEROS_SSH_OPTIONS`]
 - -p [port on the RouterOS device where SSH is listening; `$ROUTEROS_SSH_PORT`]
 - -u [username of the user on the RouterOS device; `$ROUTEROS_USER`]
 

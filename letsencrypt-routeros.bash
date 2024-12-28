@@ -103,6 +103,7 @@ $0
   -k [SSH Private Key]
   -p [RouterOS SSH Port]
   -u [RouterOS User]
+  -o [RouterOS SSH Options]
 
 or use a configuration file:"
 
