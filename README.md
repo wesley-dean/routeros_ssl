@@ -174,9 +174,13 @@ run by Certbot, as a containerized service, etc..
 #### Containerized Usage
 
 A containerized image is available to expedite installation and usage.  The
-image is compatible with Docker, Podman, and more, is available on DockerHub:
+image is compatible with Docker, Podman, and more, is available on DockerHub and
+GitHub Container Registry:
 
-[wesleydean/routeros_ssl](https://hub.docker.com/r/wesleydean/routeros_ssl)
+- DockerHub:
+  [docker.io/wesleydean/routeros_ssl](https://hub.docker.com/r/wesleydean/routeros_ssl)
+- GHCR:
+  [ghcr.io/wesley-dean/routeros_ssl](https://github.com/wesley-dean/routeros_ssl/pkgs/container/routeros_ssl)
 
 The tool, a Bash script, uses OpenSSH to interact with RouterOS devices; it
 doesn't require additional network access, special tooling, capabilities, etc.
