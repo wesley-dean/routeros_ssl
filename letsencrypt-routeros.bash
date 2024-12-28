@@ -79,7 +79,6 @@ declare CERTIFICATE="${CERTIFICATE:-/etc/letsencrypt/$DOMAIN/live/cert.pem}"
 ## @brief path/filename to the private key associated with the certificate
 declare KEY="${KEY:-/etc/letsencrypt/$DOMAIN/live/privkey.pem}"
 
-
 ## @fn usage_help()
 ## @brief display help to the end-user
 ## @details
@@ -469,7 +468,7 @@ main() {
 
   CONFIG_FILE="${CONFIG_FILE:-}"
 
-  if [ -n "${CONFIG_FILE:-}" ] ; then
+  if [ -n "${CONFIG_FILE:-}" ]; then
     for config_file in "${config_file_options[@]}"; do
       [ -f "$config_file" ] && CONFIG_FILE="$config_file"
     done
