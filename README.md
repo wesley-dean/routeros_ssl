@@ -1,6 +1,6 @@
 [![MegaLinter](https://github.com/wesley-dean/routeros_ssl/actions/workflows/megalinter.yml/badge.svg)](https://github.com/wesley-dean/routeros_ssl/actions/workflows/megalinter.yml)
 [![Dependabot Updates](https://github.com/wesley-dean/routeros_ssl/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/wesley-dean/routeros_ssl/actions/workflows/dependabot/dependabot-updates)
-[![MegaLinter](https://github.com/wesley-dean/routeros_ssl/actions/workflows/megalinter.yml/badge.svg)](https://github.com/wesley-dean/routeros_ssl/actions/workflows/megalinter.yml)
+[![Publish](https://github.com/wesley-dean/routeros_ssl/actions/workflows/publish.yml/badge.svg)](https://github.com/wesley-dean/routeros_ssl/actions/workflows/publish.yml)
 
 # wesley-dean/routeros_ssl
 
