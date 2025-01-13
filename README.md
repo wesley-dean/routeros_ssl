@@ -18,6 +18,11 @@ This shell script is written to support
 [Mikrotik](https://mikrotik.com/).  It's extremely unlikely that it will work
 with any other platform.
 
+## Who Wrote This
+
+[Wes Dean](https://github.com/wesley-dean) is the author of the updates; he
+can be found on [LinkedIn](https://linkedin.com/in/wesley-dean/).
+
 ## Where to Find the Source Code
 
 The source code for this tool is hosted on [GitHub](https://github.com/) at
