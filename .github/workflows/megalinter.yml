@@ -18,7 +18,6 @@ env:
   APPLY_FIXES: all # When active, APPLY_FIXES must also be defined as environment variable (in github/workflows/mega-linter.yml or other CI tool)
   APPLY_FIXES_EVENT: pull_request # Decide which event triggers application of fixes in a commit or a PR (pull_request, push, all)
   APPLY_FIXES_MODE: commit # If APPLY_FIXES is used, defines if the fixes are directly committed (commit) or posted in a PR (pull_request)
-
 concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
@@ -28,6 +27,9 @@ jobs:
     name: MegaLinter
     runs-on: ubuntu-22.04
     permissions: write-all
+    env:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PRIVATE_KEY_PASSPHRASE: ${{ secrets.GPG_PRIVATE_KEY_PASSPHRASE }}
     steps:
       # Git Checkout
       - name: Checkout Code
@@ -40,8 +42,8 @@ jobs:
         id: import-gpg
         uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e5 # pin@v6
         with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PRIVATE_KEY_PASSPHRASE }}
+          gpg_private_key: ${{env.GPG_PRIVATE_KEY}}
+          passphrase: ${{env.GPG_PRIVATE_KEY_PASSPHRASE}}
           git_user_signingkey: true
           git_commit_gpgsign: true
 
@@ -67,7 +69,7 @@ jobs:
       - name: Create Pull Request with applied fixes
         id: cpr
         if: steps.ml.outputs.has_updated_sources == 1 && (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) && env.APPLY_FIXES_MODE == 'pull_request' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # pin@v5
+        uses: peter-evans/create-pull-request@67ccf781d68cd99b580ae25a5c18a1cc84ffff1f # pin@v5
         with:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           commit-message: "[MegaLinter] Apply linters automatic fixes"
