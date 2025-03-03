@@ -41,15 +41,6 @@ jobs:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN || github.token }}
           fetch-depth: 1
 
-      - name: "Import GPG key"
-        id: import-gpg
-        uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e5 # pin@v6
-        with:
-          gpg_private_key: ${{env.GPG_PRIVATE_KEY}}
-          passphrase: ${{env.GPG_PRIVATE_KEY_PASSPHRASE}}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-
       # MegaLinter
       - name: MegaLinter
         id: ml
@@ -57,6 +48,16 @@ jobs:
         env:
           VALIDATE_ALL_CODEBASE: false
           GITHUB_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN || github.token }}
+
+      - name: "Import GPG key"
+        id: import-gpg
+        uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e5 # pin@v6
+        if: steps.ml.outputs.has_updated_sources == 1 && (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) && env.APPLY_FIXES_MODE == 'commit' && github.ref != 'refs/heads/main' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        with:
+          gpg_private_key: ${{ env.GPG_PRIVATE_KEY }}
+          passphrase: ${{ env.GPG_PRIVATE_KEY_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
 
       # Upload MegaLinter artifacts
       - name: Archive production artifacts
