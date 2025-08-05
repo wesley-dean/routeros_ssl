@@ -108,6 +108,6 @@ jobs:
 
       - name: Upload MegaLinter scan results to GitHub Security tab
         if: steps.sarif_file_exists.outputs.files_exists == 'true'
-        uses: github/codeql-action/upload-sarif@d6bbdef45e766d081b84a2def353b0055f728d3e # pin@v3.29.3
+        uses: github/codeql-action/upload-sarif@4e828ff8d448a8a6e532957b1811f387a63867e8 # pin@v3.29.4
         with:
           sarif_file: "megalinter-reports/megalinter-report.sarif"
