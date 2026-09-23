@@ -105,7 +105,7 @@ adr-index:
 	@marker='$(ADR_INDEX_MARKER)'; \
 	count=0; \
 	while IFS= read -r line || [[ -n "$$line" ]]; do \
-		if [[ "$line" == "$marker" ]]; then ((count += 1)); fi; \
+		if [[ "$$line" == "$$marker" ]]; then ((count += 1)); fi; \
 	done <"$(ADR_INDEX_FILE)"; \
 	[[ "$$count" == 1 ]] || { \
 		printf 'Expected exactly one ADR inventory marker in %s; found %s\n' "$(ADR_INDEX_FILE)" "$$count" >&2; \
