@@ -23,7 +23,7 @@ teardown() {
     printf 'ROUTEROS_SSH_OPTIONS=%q\n' ""
   } >"$CONFIG_FILE_PATH"
 
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"NOT FOUND"* ]]
@@ -32,7 +32,7 @@ teardown() {
 @test "main exits 2 when RouterOS connection verification fails" {
   export FAKE_SSH_FAIL_MATCH="/system resource print"
 
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
 
   [ "$status" -eq 2 ]
 }
@@ -40,7 +40,7 @@ teardown() {
 @test "main exits 4 when certificate upload fails" {
   export FAKE_SCP_FAIL_CALL=1
 
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
 
   [ "$status" -eq 4 ]
 }
@@ -48,7 +48,7 @@ teardown() {
 @test "second scp failure is currently masked and main exits zero [known defect #112]" {
   export FAKE_SCP_FAIL_CALL=2
 
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Could not upload new file"* ]]
@@ -59,14 +59,14 @@ teardown() {
   skip "blocked by #112: upload_key currently masks upload_file failure"
 
   export FAKE_SCP_FAIL_CALL=2
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
   [ "$status" -eq 5 ]
 }
 
 @test "main exits 6 when service configuration fails" {
   export FAKE_SSH_FAIL_MATCH="/ip service set www-ssl"
 
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
 
   [ "$status" -eq 6 ]
 }
@@ -75,7 +75,7 @@ teardown() {
   skip "blocked by #112: setup suppresses delete_file failures"
 
   export FAKE_SSH_FAIL_MATCH="/file remove"
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
   [ "$status" -eq 3 ]
 }
 
@@ -83,14 +83,14 @@ teardown() {
   skip "blocked by #112: cleanup suppresses delete_file failures"
 
   export FAKE_SSH_FAIL_MATCH="/file remove"
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
   [ "$status" -eq 7 ]
 }
 
 @test "certificate upload failure bypasses final cleanup [known defect #112]" {
   export FAKE_SCP_FAIL_CALL=1
 
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
 
   [ "$status" -eq 4 ]
   removal_count=0
@@ -106,7 +106,7 @@ teardown() {
   skip "blocked by #112: early exits currently bypass final cleanup"
 
   export FAKE_SCP_FAIL_CALL=1
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT"
   [ "$status" -eq 4 ]
 
   removal_count=0
