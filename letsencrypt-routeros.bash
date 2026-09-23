@@ -1,39 +1,37 @@
 #!/usr/bin/env bash
-
-## @fn letsencrypt-routeros.bash
-## @brief shell script to setup a RouterOS device to use an SSL certificate
+# shellcheck shell=bash
+## @file letsencrypt-routeros.bash
+## @brief Uploads an existing TLS certificate and private key to RouterOS.
 ## @details
-## It's possible to generate SSL / TLS certificates on a RouterOS device using
-## commands on the device itself.  As of September 2024, it's possible to
-## setup a RouterOS device to generate and have signed certificates using
-## LetsEncrypt.  The downside to this approach is that it involves opening
-## port 80 so that LetsEncrypt can call a well-known URL to verify ownership
-## of a domain before it will sign a certificate.  Opening port 80 on an
-## edge device may not be a risk that everyone is willing to accept.  This
-## script allows one to use an alternative verification challenge (e.g.,
-## DNS-01) to prove ownership and run certbot locally to generate and have
-## signed a key and certificate, then upload those files into a RouterOS
-## device.
+## This script transfers an existing certificate and its private key to a
+## MikroTik RouterOS device over SSH/SCP, imports both files into the RouterOS
+## certificate store, and configures selected TLS-capable services to use the
+## imported certificate.  Certificate issuance and ACME validation remain
+## outside this program.
 ##
-## This process allows one to use LetsEncrypt in conjunction with the www-ssl
-## and api-ssl services on a RouterOS device.
+## The root script is the historical public executable and sourceable entry
+## point.  Configuration files are sourced as trusted Bash code, and remote
+## operations can modify certificate, file, and service state on the target
+## RouterOS device.  Callers are responsible for supplying appropriate
+## credentials, certificate material, and network reachability.
 ##
-## While this script was written with LetsEncrypt in mind, there's no reason
-## that an arbitrary certificate and private key obtained from any other
-## means can't be used.  If you, dear reader, want to use a self-signed cert
-## or pay a certificate authority to sign a certificate, please, by all means,
-## use this script.
-##
-## This script was based on the file work by [kiprox](https://github.com/kiprox)
-## and GPL3-licensed code uploaded to the
-## [kiprox/mikrotik-ssl repo](https://github.com/kiprox/mikrotik-ssl) on
-## [GitHub](https://GitHub.com/).
-##
+## The current implementation intentionally remains behavior-compatible while
+## its documentation and build tooling are modernized.  Function-level
+## warnings identify legacy behavior where the executable contract and the
+## intended contract currently differ.
 ## @author Wes Dean
+## @see doc/adr/README.md
+## @par Examples
+## @code
+## ./letsencrypt-routeros.bash admin router.example.com 22 \
+##   ~/.ssh/id_rsa example.com
+## ./letsencrypt-routeros.bash -u admin -H router.example.com -p 22 \
+##   -k ~/.ssh/id_rsa -d example.com
+## @endcode
 
 set -euo pipefail
 
-## @var config_file_options[]
+## @var config_file_options
 ## @brief list of configuration files to use
 ## @details
 ## This is a list (array) of possible configuration files.  Each is loaded in
@@ -42,7 +40,7 @@ set -euo pipefail
 ## over values in the configuration files.
 declare -a config_file_options=(".env" "letsencrypt-routeros.settings")
 
-## @var services[]
+## @var services
 ## @brief the list of services we want to attempt to configure
 ## @details
 ## This is the list of services to attempt to configure.  These generally
@@ -80,15 +78,25 @@ declare CERTIFICATE="${CERTIFICATE:-/etc/letsencrypt/$DOMAIN/live/cert.pem}"
 declare KEY="${KEY:-/etc/letsencrypt/$DOMAIN/live/privkey.pem}"
 
 ## @fn usage_help()
-## @brief display help to the end-user
+## @brief Writes command usage and configuration-file names.
 ## @details
-## This will try to provide some semi-userful information back to the
-## end-user so that they can use the tool as-intended.
-## @retval 0 (True) if the help text was displayed
-## @retval 1 (False) if something went wrong
+## Prints the positional and option-oriented invocation forms followed by the
+## supported configuration-file candidates.  The function performs no
+## validation and does not change configuration state.
+##
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## Usage text and supported configuration-file names are written to STDOUT.
+## @par STDERR
+## Nothing is intentionally written to STDERR.
+##
+## @returns Human-readable usage text.
+## @retval 0 The usage text was written successfully.
+## @note A non-zero status from an underlying output operation may propagate.
 ## @par Examples
 ## @code
-## usage_help || exit 1
+## usage_help
 ## @endcode
 usage_help() {
   echo "
@@ -112,15 +120,22 @@ or use a configuration file:"
 }
 
 ## @fn verify_connection()
-## @brief verify that we can connect to the RouterOS device
+## @brief Verifies that the configured RouterOS SSH connection is usable.
 ## @details
-## Before we attempt to upload files, import certificates, etc. we want to
-## make sure we can connect to the RouterOS device.  This will login via
-## SSH and attempt to display some basic system information using a command
-## that ought not fail.  If this is unsuccessful, we can be pretty sure that
-## we're unable to connect to the RouterOS device.
-## @retval 0 (True) if a connection was established
-## @retval 1 (Fail) if a connection could not be madei
+## Executes `/system resource print` through the prepared RouterOS SSH command.
+## A successful remote command is treated as evidence that authentication and
+## command execution are available before mutating remote certificate state.
+##
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## Connection progress and any remote command output are written to STDOUT.
+## @par STDERR
+## Connection diagnostics and SSH diagnostics may be written to STDERR.
+##
+## @returns Human-readable connection progress and remote command output.
+## @retval 0 The RouterOS command completed successfully.
+## @retval 1 The RouterOS command could not be completed.
 ## @par Examples
 ## @code
 ## verify_connection || exit 1
@@ -140,30 +155,27 @@ More info: https://wiki.mikrotik.com/wiki/Use_SSH_to_execute_commands_(DSA_key_l
 }
 
 ## @fn verify_requirements()
-## @brief verify that the local files we'll need are present and accessible
-## @details This will verify that the certificate and private portion of
-## the key are available and readable.  It doesn't help if we can connect and
-## upload one file if the other doesn't exist or isn't readable.  So, to make
-## sure we have everything we need, we make sure stuff's there.  If something
-## isn't there or isn't readable, we want to report that back as soon as
-## possible.
+## @brief Verifies that the local certificate and private key are accessible.
+## @details
+## Checks that the configured certificate and private-key paths exist as files
+## and are readable before any remote mutation begins.  The checks are ordered
+## so certificate failures are reported before private-key failures.
+## @warning The legacy implementation reports an unreadable private key but
+## currently falls through with a successful status.  Runtime correction is
+## intentionally deferred from the documentation/build modernization change.
 ##
-## The certificate is specified using the $CERTIFICATE variable; if that's
-## not configured, the default is $DOMAIN.pem
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## File-check progress is written to STDOUT.
+## @par STDERR
+## Missing or unreadable file diagnostics are written to STDERR.
 ##
-## The private key is specified using the $KEY variable; if that's not
-## configured, the default is $KEY.key
-##
-## The extra step of verifying if the files are readable is because they are
-## often stored in a location that only root can access.
-##
-## We return a result code of 0 (True) if everything's good to go; otherwise,
-## we return a non-zero code indicating what's wrong.
-## @retval 0 (True) if everything exists and is readable
-## @retval 1 (False) if the certificate is missing
-## @retval 2 (False) if the certificate is unreadable
-## @retval 3 (False) if the private key is missing
-## @retval 4 (False) if the private key is unreadable
+## @returns Human-readable requirement-check progress.
+## @retval 0 The checks reached the end of the function.
+## @retval 1 The certificate file does not exist.
+## @retval 2 The certificate file is not readable.
+## @retval 3 The private-key file does not exist.
 ## @par Examples
 ## @code
 ## verify_requirements || exit 1
@@ -202,19 +214,29 @@ verify_requirements() {
 }
 
 ## @fn upload_certificate()
-## @brief upload the certificate to the RouterOS device
+## @brief Uploads and imports the configured certificate.
 ## @details
-## This is wrapper around upload_file() that specifies the local, remote, and
-## certificate names while making it more clear what's going on.
-## The return code is that which is passed back from upload_file()
-## @param local_file the path/filename of the local file ($CERTIFICATE)
-## @param remote_file the path/filename of where the file should be placed
-## @param cert_name the name of the certificate once it has been imported
-## @retval 0 (True) if the upload and import were successful
-## @retval non-zero (False) if the upload or the import were unsuccessful
+## Supplies certificate-specific defaults to upload_file() and reports progress
+## around that operation.  The default remote filename is `$DOMAIN.pem`, and
+## the default imported certificate name is `$DOMAIN.pem_0`.
+##
+## @param local_file Local certificate path; defaults to `CERTIFICATE`.
+## @param remote_file RouterOS upload filename; defaults to `$DOMAIN.pem`.
+## @param cert_name RouterOS certificate name; defaults to `$DOMAIN.pem_0`.
+##
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## Certificate-processing progress and upload_file() output are written.
+## @par STDERR
+## upload_file() diagnostics may be written to STDERR.
+##
+## @returns Human-readable certificate-processing progress.
+## @retval 0 The certificate was processed successfully.
+## @note Non-zero statuses from upload_file() are propagated unchanged.
 ## @par Examples
 ## @code
-## upload_certificate || exit 1
+## upload_certificate "$CERTIFICATE" "$DOMAIN.pem" "$DOMAIN.pem_0"
 ## @endcode
 upload_certificate() {
   local_file="${1:-$CERTIFICATE}"
@@ -228,19 +250,33 @@ upload_certificate() {
 }
 
 ## @fn upload_key()
-## @brief upload the private portion of the key to the RouterOS device
+## @brief Uploads and imports the configured private key.
 ## @details
-## This is wrapper around upload_file() that specifies the local, remote, and
-## key names while making it more clear what's going on.
-## The return code is that which is passed back from upload_file()
-## @param local_file the path/filename of the local file ($KEY)
-## @param remote_file the path/filename of where the file should be placed
-## @param cert_name the name of the key once it has been imported
-## @retval 0 (True) if the upload and import were successful
-## @retval non-zero (False) if the upload or the import were unsuccessful
+## Supplies private-key-specific defaults to upload_file() and reports progress
+## around that operation.  The default remote filename is `$DOMAIN.key`, and
+## the default imported name is `$DOMAIN.key_0`.
+## @warning The legacy implementation does not explicitly propagate a failing
+## upload_file() status before writing its final progress line.  In caller
+## contexts that suppress errexit, that final output may mask the failure.
+##
+## @param local_file Local private-key path; defaults to `KEY`.
+## @param remote_file RouterOS upload filename; defaults to `$DOMAIN.key`.
+## @param cert_name RouterOS key import name; defaults to `$DOMAIN.key_0`.
+##
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## Private-key processing progress and upload_file() output are written.
+## @par STDERR
+## upload_file() diagnostics may be written to STDERR.
+##
+## @returns Human-readable private-key processing progress.
+## @retval 0 The function reaches its final progress output successfully.
+## @note upload_file() may produce a non-zero status that is not preserved by
+## the current wrapper in every calling context.
 ## @par Examples
 ## @code
-## upload_key || exit 1
+## upload_key "$KEY" "$DOMAIN.key" "$DOMAIN.key_0"
 ## @endcode
 upload_key() {
   local_file="${1:-$KEY}"
@@ -254,40 +290,37 @@ upload_key() {
 }
 
 ## @fn upload_file()
-## @brief upload and import a file (certificate or key)
+## @brief Uploads one local file and imports it into RouterOS.
 ## @details
-## This does the bulk of the file transfer and importing of the cert and/or
-## key.
+## Removes an existing certificate-store entry with the requested name, copies
+## the local file to the RouterOS device with SCP, waits briefly, and invokes
+## the RouterOS certificate import command.  Failure to remove the previous
+## certificate is reported but does not stop the replacement attempt.
 ##
-## First we try to remove the remote certificate / key.  This may fail the first
-## time the script is run as there may not be a certificate / key to remove.
+## This function mutates remote certificate state and uploads a temporary file.
+## The caller is responsible for later cleanup of the uploaded file.
 ##
-## By "remove", we mean telling the RouterOS device not to use this
-## certificate / key any more.  We're removing the certificate / key, not
-## deleting the file that contains it.
+## @param local_file Local path to the certificate or private-key file.
+## @param remote_file Filename to use for the RouterOS upload.
+## @param cert_name Existing RouterOS certificate-store name to remove.
 ##
-## Then we attempt to delete the remote file.  This will usually fail because
-## one of the last steps is to cleanup the uploaded files.
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## Upload/import progress and remote command output may be written to STDOUT.
+## @par STDERR
+## Removal, SCP, SSH, and import diagnostics may be written to STDERR.
 ##
-## Then, we upload the local_file from the local system to the RouterOS
-## device.  We use SCP to transfer the file.  If this step fails, we abort
-## and return an error.
-##
-## After a short delay, we attempt to import the uploaded file into the
-## RouterOS device's certificate store.
-## @param local_file the local file to upload
-## @param remote_file what to call the file on the remote system
-## @param cert_name the name of the file in the certificate store
-## @retval 0 (True) if the upload and import were successful
-## @retval 1 (False) if the file could not be uploaded
-## @retval 2 (False) if the file could not be imported
+## @returns Human-readable upload and import progress.
+## @retval 0 The file was uploaded and imported successfully.
+## @retval 1 SCP could not upload the file.
+## @retval 2 RouterOS could not import the uploaded file.
 ## @par Examples
 ## @code
 ## upload_file \
 ##   "/etc/letsencrypt/live/example.com/cert.pem" \
 ##   "example.com.pem" \
-##   "example.com.pem_0" \
-## || exit 1
+##   "example.com.pem_0"
 ## @endcode
 upload_file() {
   local_file="${1?Error: no local file provided}"
@@ -325,17 +358,27 @@ upload_file() {
 }
 
 ## @fn delete_file()
-## @brief delete a file from the RouterOS device
+## @brief Attempts to remove an uploaded file from the RouterOS filesystem.
 ## @details
-## This will delete the specified file from the RouterOS device.  The file
-## should be removed from the certificate store first.  This DOES NOT remove
-## the certificate from the certificate store.
+## Runs the RouterOS `/file remove` command for the supplied filename.  This
+## removes the uploaded file only; it does not remove an imported certificate
+## from the RouterOS certificate store.
+## @warning A remote deletion failure is reported but the legacy implementation
+## does not preserve that non-zero status because the diagnostic output becomes
+## the function's final command.
 ##
-## It's possible -- probable -- that this will fail, especially when it is
-## called by setup() because cleanup() will remove the file when the script
-## is finishing up.
-## @retval 0 (True) if an attempt to delete the file was made
-## @retval 1 (False) if no filename was passed, it will exit with a code of 1
+## @param filename RouterOS filename to remove.
+##
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## Deletion progress and remote command output may be written to STDOUT.
+## @par STDERR
+## Remote deletion diagnostics may be written to STDERR.
+##
+## @returns Human-readable deletion progress.
+## @retval 0 The function reaches the end after attempting deletion.
+## @note Omitting `filename` triggers the required-parameter expansion error.
 ## @par Examples
 ## @code
 ## delete_file "$DOMAIN.pem"
@@ -351,21 +394,33 @@ delete_file() {
   fi
 }
 
-## @configure_services()
-## @brief configure the incoming services to use the newly imported cert / key
+## @fn configure_services()
+## @brief Configures supported RouterOS services to use an imported certificate.
 ## @details
-## This will loop through the services[] list and attempt to configure them to
-## use the certificate and key that were just uploaded and imported.
+## Iterates over the global `services` array and assigns the supplied
+## certificate name to each supported service.  `www-ssl` and `api-ssl` are
+## configured through `/ip service`; `sstp` is configured through the SSTP
+## server interface.
+## @warning An unknown service causes the legacy implementation to exit the
+## current shell with status 100 instead of returning to the caller.
 ##
-## The certificate and key must have been uploaded and imported prior to using
-## this to configure the services to use them.  This does not upload nor
-## import the certificate or the private key.
-## @param cert_name the name of the certificate in the key store to use
-## @retval 0 (True) if the configuration for all services was successful
-## @retval non-zero (False) the service that couldn't be configured
+## @param cert_name RouterOS certificate name; defaults to `$DOMAIN.pem_0`.
+##
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## Service-configuration progress and remote output may be written to STDOUT.
+## @par STDERR
+## Service failures and remote diagnostics may be written to STDERR.
+##
+## @returns Human-readable service-configuration progress.
+## @retval 0 All configured services were updated successfully.
+## @retval 1 The `www-ssl` service could not be configured.
+## @retval 2 The `api-ssl` service could not be configured.
+## @retval 3 The `sstp` service could not be configured.
 ## @par Examples
 ## @code
-## configure_services || return $?
+## configure_services "$DOMAIN.pem_0" || exit 1
 ## @endcode
 configure_services() {
   cert_name="${1:-$DOMAIN.pem_0}"
@@ -404,23 +459,27 @@ configure_services() {
 }
 
 ## @fn setup()
-## @brief perform setup steps
+## @brief Attempts to remove stale uploaded certificate and key files.
 ## @details
-## This will setup the environment by:
-## 1. removing an old uploaded certificate
-## 2. removing an old uploaded private key
+## Calls delete_file() for the certificate and private-key upload names before
+## new files are copied to the RouterOS device.  Deletion failures are
+## deliberately suppressed by the current legacy implementation.
 ##
-## It's probable that both of these will fail given that the cleanup step at
-## the end of this process removes these files.  We're making sure they're
-## gone so that there's no ambiguity about the certificate or private key we're
-## using.
-## @param certificate_file the filename of the remote certificate file
-## @param key_file the filename of the remote private key file
-## @retval 0 (True) Most situations
-## @retval non-zero (False) this shouldn't be possible
+## @param certificate_file RouterOS certificate upload filename.
+## @param key_file RouterOS private-key upload filename.
+##
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## delete_file() progress may be written to STDOUT.
+## @par STDERR
+## delete_file() diagnostics may be written to STDERR.
+##
+## @returns Human-readable remote-file cleanup progress.
+## @retval 0 The cleanup attempts completed or their failures were suppressed.
 ## @par Examples
 ## @code
-## setup || true
+## setup "$DOMAIN.pem" "$DOMAIN.key"
 ## @endcode
 setup() {
   certificate_file="${1:-$DOMAIN.pem}"
@@ -431,19 +490,28 @@ setup() {
 }
 
 ## @fn cleanup()
-## @brief cleanup after ourselves
+## @brief Attempts to remove uploaded certificate and key files after use.
 ## @details
-## This will cleanup the environment by:
-## 1. removing the uploaded certificate
-## 2. removing the uploaded private key
-## @param certificate_file the filename of the remote certificate file
-## @param key_file the filename of the remote private key file
-## @retval 0 (True) Most situations
-## @retval 1 if the certificate file couldn't be deleted
-## @retval 2 if the private key could not be deleted
+## Calls delete_file() for the certificate and private-key upload names after
+## service configuration.  Deletion failures are suppressed by the current
+## legacy implementation, so the caller cannot presently distinguish them
+## through this function's status.
+##
+## @param certificate_file RouterOS certificate upload filename.
+## @param key_file RouterOS private-key upload filename.
+##
+## @par STDIN
+## Nothing is read from STDIN.
+## @par STDOUT
+## delete_file() progress may be written to STDOUT.
+## @par STDERR
+## delete_file() diagnostics may be written to STDERR.
+##
+## @returns Human-readable remote-file cleanup progress.
+## @retval 0 The cleanup attempts completed or their failures were suppressed.
 ## @par Examples
 ## @code
-## cleanup || exit 1
+## cleanup "$DOMAIN.pem" "$DOMAIN.key"
 ## @endcode
 cleanup() {
   certificate_file="${1:-$DOMAIN.pem}"
@@ -454,15 +522,41 @@ cleanup() {
 }
 
 ## @fn main()
-## @brief the program's primary function
+## @brief Orchestrates configuration loading, validation, upload, and cleanup.
 ## @details
-## This will parse incoming arguments, load configuration from the
-## filesystem, call the functions to do the work, and cleanup afterwards.
-## @retval 0 (True) if the program was successful
-## @retval non-zero (False) if anything failed
+## Loads the selected configuration file, parses command-line options, resolves
+## remaining positional configuration, prepares SSH/SCP command strings, checks
+## local requirements and connectivity, uploads certificate material, updates
+## RouterOS services, and attempts remote-file cleanup.
+##
+## Configuration files are sourced as trusted Bash code.  Several failure
+## paths use `exit` rather than `return`; callers that source this file and
+## invoke main() therefore expose their shell to those exits.
+##
+## @param arguments[] Command-line options and positional configuration values.
+##
+## @par STDIN
+## Nothing is intentionally read from STDIN.
+## @par STDOUT
+## Progress messages and remote command output may be written to STDOUT.
+## @par STDERR
+## Configuration, validation, SSH/SCP, import, and service diagnostics may be
+## written to STDERR.
+##
+## @returns Human-readable orchestration progress and remote command output.
+## @retval 0 The complete workflow reached the end successfully.
+## @retval 1 Configuration loading or local requirement validation failed.
+## @retval 2 RouterOS connectivity verification failed.
+## @retval 3 Initial remote-file cleanup failed.
+## @retval 4 Certificate upload/import failed.
+## @retval 5 Private-key upload/import failed.
+## @retval 6 RouterOS service configuration failed.
+## @retval 7 Final remote-file cleanup failed.
+## @note Legacy option and cleanup behavior can make some documented branches
+## unreachable or report statuses differently than intended.
 ## @par Examples
 ## @code
-## main "$@" || exit $?
+## main admin router.example.com 22 ~/.ssh/id_rsa example.com
 ## @endcode
 main() {
 

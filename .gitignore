@@ -5,3 +5,6 @@
 *.pem
 megalinter-reports/
 reports/
+vendor/
+dist/
+doc/reference/

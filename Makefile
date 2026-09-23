@@ -1,0 +1,215 @@
+SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
+
+PROJECT_NAME := routeros_ssl
+SCRIPT := letsencrypt-routeros.bash
+DIST_DIR := dist
+DIST_SCRIPT := $(DIST_DIR)/$(SCRIPT)
+DIST_CHECKSUM := $(DIST_SCRIPT).sha256
+
+VENDOR_DIR := vendor
+DEPENDENCY_MANIFEST := dependencies.txt
+BASHDEPS := $(VENDOR_DIR)/bashdeps.bash
+BASHDEPS_VERSION := 0.4.1
+BASHDEPS_URL := https://github.com/wesley-dean/bashdeps/releases/download/v$(BASHDEPS_VERSION)/bashdeps.bash
+BASHDEPS_SHA256 := 5131ebb6a3a85e1d76624a37146c2442b2e57be6ffd8139b9590d28239876701
+ADRCTL := $(VENDOR_DIR)/adrctl.bash
+ADR_INDEX_FILE := doc/adr/README.md
+ADR_INDEX_MARKER := <!-- adrctl-generated-footer -->
+BASH_DOXYGEN := $(VENDOR_DIR)/doxygen-bash.awk
+DOCS_OUTPUT := doc/reference
+
+VERSION ?= 0.0.0-dev
+BUILD_COMMIT ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || printf 'unknown')
+BUILD_DATE ?= $(shell git show -s --format=%cI HEAD 2>/dev/null || printf 'unknown')
+
+.PHONY: adr-index all build check clean deps deps-check distclean docs docs-clean FORCE verify-bashdeps
+
+all: deps
+	$(MAKE) --no-print-directory build
+
+FORCE:
+
+$(BASHDEPS): FORCE
+	@mkdir -p "$(VENDOR_DIR)"
+	@verify_hash() { \
+		path=$$1; \
+		if command -v sha256sum >/dev/null 2>&1; then \
+			printf '%s  %s\n' "$(BASHDEPS_SHA256)" "$$path" | sha256sum -c - >/dev/null 2>&1; \
+		elif command -v shasum >/dev/null 2>&1; then \
+			read -r actual _ < <(shasum -a 256 "$$path"); \
+			[[ "$$actual" == "$(BASHDEPS_SHA256)" ]]; \
+		else \
+			return 2; \
+		fi; \
+	}; \
+	if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then \
+		printf '%s\n' 'No SHA-256 verification command is available for bashdeps.bash' >&2; \
+		exit 1; \
+	fi; \
+	if [[ -f "$@" ]] && verify_hash "$@"; then \
+		chmod 0755 "$@"; \
+		exit 0; \
+	fi; \
+	tmp="$@.tmp"; \
+	trap 'rm -f "$$tmp"' EXIT; \
+	if command -v curl >/dev/null 2>&1; then \
+		curl -fsSL "$(BASHDEPS_URL)" -o "$$tmp"; \
+	elif command -v wget >/dev/null 2>&1; then \
+		wget -qO "$$tmp" "$(BASHDEPS_URL)"; \
+	else \
+		printf '%s\n' 'curl or wget is required to bootstrap bashdeps.bash' >&2; \
+		exit 1; \
+	fi; \
+	verify_hash "$$tmp" || { \
+		printf '%s\n' 'Downloaded bashdeps.bash does not match the committed SHA-256 digest' >&2; \
+		exit 1; \
+	}; \
+	chmod 0755 "$$tmp"; \
+	mv "$$tmp" "$@"; \
+	trap - EXIT
+
+verify-bashdeps:
+	@test -x "$(BASHDEPS)" || { \
+		printf '%s\n' 'Missing or non-executable bashdeps bootstrap; run make deps' >&2; \
+		exit 1; \
+	}
+	@if command -v sha256sum >/dev/null 2>&1; then \
+		printf '%s  %s\n' "$(BASHDEPS_SHA256)" "$(BASHDEPS)" | sha256sum -c - >/dev/null 2>&1 || { \
+			printf '%s\n' 'bashdeps.bash does not match the committed SHA-256 digest; run make deps' >&2; \
+			exit 1; \
+		}; \
+	elif command -v shasum >/dev/null 2>&1; then \
+		read -r actual _ < <(shasum -a 256 "$(BASHDEPS)"); \
+		[[ "$$actual" == "$(BASHDEPS_SHA256)" ]] || { \
+			printf '%s\n' 'bashdeps.bash digest mismatch; run make deps' >&2; \
+			exit 1; \
+		}; \
+	else \
+		printf '%s\n' 'No SHA-256 verification command is available for bashdeps.bash' >&2; \
+		exit 1; \
+	fi
+
+deps: $(BASHDEPS) $(DEPENDENCY_MANIFEST)
+	$(MAKE) --no-print-directory verify-bashdeps
+	"$(BASHDEPS)" sync "$(DEPENDENCY_MANIFEST)"
+
+deps-check: verify-bashdeps $(DEPENDENCY_MANIFEST)
+	"$(BASHDEPS)" verify "$(DEPENDENCY_MANIFEST)"
+
+adr-index:
+	@test -r "$(ADRCTL)" || { \
+		printf '%s\n' 'Missing documentation dependency vendor/adrctl.bash; run make deps' >&2; \
+		exit 1; \
+	}
+	@marker='$(ADR_INDEX_MARKER)'; \
+	count=0; \
+	while IFS= read -r line || [[ -n "$$line" ]]; do \
+		if [[ "$$line" == "$$marker" ]]; then ((count += 1)); fi; \
+	done <"$(ADR_INDEX_FILE)"; \
+	[[ "$$count" == 1 ]] || { \
+		printf 'Expected exactly one ADR inventory marker in %s; found %s\n' "$(ADR_INDEX_FILE)" "$$count" >&2; \
+		exit 1; \
+	}; \
+	prefix_tmp="$(ADR_INDEX_FILE).prefix.tmp"; \
+	toc_tmp="$(ADR_INDEX_FILE).toc.tmp"; \
+	candidate_tmp="$(ADR_INDEX_FILE).tmp"; \
+	trap 'rm -f "$$prefix_tmp" "$$toc_tmp" "$$candidate_tmp"' EXIT; \
+	: >"$$prefix_tmp"; \
+	while IFS= read -r line || [[ -n "$$line" ]]; do \
+		printf '%s\n' "$$line" >>"$$prefix_tmp"; \
+		[[ "$$line" == "$$marker" ]] && break; \
+	done <"$(ADR_INDEX_FILE)"; \
+	bash "$(ADRCTL)" generate toc >"$$toc_tmp"; \
+	IFS= read -r heading <"$$toc_tmp"; \
+	[[ "$$heading" == '# Architecture Decision Records' ]] || { \
+		printf 'Unexpected adrctl TOC heading: %s\n' "$$heading" >&2; \
+		exit 1; \
+	}; \
+	{ \
+		while IFS= read -r line || [[ -n "$$line" ]]; do printf '%s\n' "$$line"; done <"$$prefix_tmp"; \
+		printf '\n'; \
+		first=true; \
+		while IFS= read -r line || [[ -n "$$line" ]]; do \
+			if $$first; then line='## Architecture Decision Records'; first=false; fi; \
+			printf '%s\n' "$$line"; \
+		done <"$$toc_tmp"; \
+	} >"$$candidate_tmp"; \
+	if ! cmp -s "$$candidate_tmp" "$(ADR_INDEX_FILE)"; then mv "$$candidate_tmp" "$(ADR_INDEX_FILE)"; fi; \
+	trap - EXIT; \
+	rm -f "$$prefix_tmp" "$$toc_tmp" "$$candidate_tmp"
+
+docs:
+	@test -r "$(BASH_DOXYGEN)" || { \
+		printf '%s\n' 'Missing documentation dependency vendor/doxygen-bash.awk; run make deps' >&2; \
+		exit 1; \
+	}
+	@command -v doxygen >/dev/null 2>&1 || { \
+		printf '%s\n' 'doxygen is required to generate reference documentation' >&2; \
+		exit 1; \
+	}
+	awk -f "$(BASH_DOXYGEN)" -- --strict "$(SCRIPT)" >/dev/null
+	rm -rf "$(DOCS_OUTPUT)"
+	doxygen Doxyfile
+	@test -f "$(DOCS_OUTPUT)/index.html" || { \
+		printf '%s\n' 'Doxygen did not generate doc/reference/index.html' >&2; \
+		exit 1; \
+	}
+
+docs-clean:
+	rm -rf "$(DOCS_OUTPUT)"
+
+build: $(DIST_SCRIPT) $(DIST_CHECKSUM)
+
+$(DIST_SCRIPT): FORCE $(SCRIPT)
+	@mkdir -p "$(DIST_DIR)"
+	@tmp="$@.tmp"; \
+	trap 'rm -f "$$tmp"' EXIT; \
+	{ \
+		IFS= read -r shebang; \
+		printf '%s\n' "$$shebang"; \
+		printf '%s\n' '#'; \
+		printf '%s\n' '# Generated by make build. Do not edit directly.'; \
+		printf '%s\n' '# Project: $(PROJECT_NAME)'; \
+		printf '%s\n' '# Version: $(VERSION)'; \
+		printf '%s\n' '# Build date: $(BUILD_DATE)'; \
+		printf '%s\n' '# Build commit: $(BUILD_COMMIT)'; \
+		printf '%s\n' '# Maintained source: $(SCRIPT)'; \
+		printf '\n'; \
+		printf 'ROUTEROS_SSL_PROJECT_NAME=%q\n' "$(PROJECT_NAME)"; \
+		printf 'ROUTEROS_SSL_VERSION=%q\n' "$(VERSION)"; \
+		printf 'ROUTEROS_SSL_BUILD_DATE=%q\n' "$(BUILD_DATE)"; \
+		printf 'ROUTEROS_SSL_BUILD_COMMIT=%q\n' "$(BUILD_COMMIT)"; \
+		printf '\n'; \
+		while IFS= read -r line || [[ -n "$$line" ]]; do printf '%s\n' "$$line"; done; \
+	} <"$(SCRIPT)" >"$$tmp"; \
+	chmod 0755 "$$tmp"; \
+	bash -n "$$tmp"; \
+	mv "$$tmp" "$@"; \
+	trap - EXIT
+
+$(DIST_CHECKSUM): $(DIST_SCRIPT)
+	@cd "$(DIST_DIR)"; \
+	tmp="$(SCRIPT).sha256.tmp"; \
+	trap 'rm -f "$$tmp"' EXIT; \
+	if command -v sha256sum >/dev/null 2>&1; then \
+		sha256sum "$(SCRIPT)" >"$$tmp"; \
+	elif command -v shasum >/dev/null 2>&1; then \
+		read -r digest _ < <(shasum -a 256 "$(SCRIPT)"); \
+		printf '%s  %s\n' "$$digest" "$(SCRIPT)" >"$$tmp"; \
+	else \
+		printf '%s\n' 'No SHA-256 command is available for build checksums' >&2; \
+		exit 1; \
+	fi; \
+	mv "$$tmp" "$(SCRIPT).sha256"; \
+	trap - EXIT
+
+check: build
+	bash -n "$(SCRIPT)"
+	bash -n "$(DIST_SCRIPT)"
+
+clean: docs-clean
+	rm -rf "$(DIST_DIR)"
+
+distclean: clean
+	rm -rf "$(VENDOR_DIR)"
