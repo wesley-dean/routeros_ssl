@@ -72,3 +72,21 @@ Maintained Bash documentation follows
 `doc/standards/bash/documentation-standard.md`.  `make docs` validates the
 root script with the pinned bash-doxygen filter and writes ignored derivative
 HTML beneath `doc/reference/`.
+
+## Characterization Testing
+
+Behavior tests live beneath `tests/` and use Bats.  They must not require a
+live RouterOS device or real credentials; use deterministic PATH-injected
+fakes for external transport boundaries.  The canonical test command is
+`make test`, which emits TAP through `bats --tap`.
+
+Tests select the executable through `ROUTEROS_SSL_UNDER_TEST`; the Make target
+maps `TEST_SCRIPT` to that variable.  Keep the suite artifact-agnostic so the
+same tests can exercise the root entry point and generated distribution
+artifacts.
+
+Known defects may be characterized explicitly when the test name identifies
+the defect and references the follow-up issue.  Desired corrected behavior may
+remain skipped until the owning bug-fix issue is implemented.  Do not alter the
+runtime implementation merely to make a characterization test green.
+
