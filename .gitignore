@@ -8,3 +8,4 @@ reports/
 vendor/
 dist/
 doc/reference/
+test-results/
