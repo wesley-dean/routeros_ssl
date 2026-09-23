@@ -57,11 +57,11 @@ the network; `make deps-check`, `make build`, `make adr-index`, and `make docs`
 consume prepared state without fetching their own dependencies.  `make all`
 performs dependency convergence followed by the ordinary distribution build.
 
-The current distribution contract produces
-`dist/letsencrypt-routeros.bash` and its adjacent `.sha256` file.  Preserve
-the root public script for direct execution, sourcing, raw download, and
-container compatibility unless later accepted governance explicitly changes
-that contract.
+The distribution contract produces `.dev.bash`, ordinary `.bash`, and
+`.min.bash` flavors beneath `dist/`, plus an adjacent `.sha256` for each.
+The flavors form one development-to-ordinary-to-minified chain.  Preserve the
+root public script as the normalized ordinary compatibility artifact for direct
+execution, sourcing, raw download, and container use.
 
 ## ADR and Reference Documentation
 
@@ -81,10 +81,9 @@ live RouterOS device or real credentials; use deterministic PATH-injected
 fakes for external transport boundaries.  The canonical test command is
 `make test`, which emits TAP through `bats --tap`.
 
-Tests select the executable through `ROUTEROS_SSL_UNDER_TEST`; the Make target
-maps `TEST_SCRIPT` to that variable.  Keep the suite artifact-agnostic so the
-same tests can exercise the root entry point and generated distribution
-artifacts.
+Tests select the executable through `ROUTEROS_SSL_UNDER_TEST`.  `make test`
+runs the same TAP suite against the root compatibility file and all three
+`dist/` flavors.  Keep the suite artifact-agnostic.
 
 The suite is regression coverage for the corrected runtime contract.  Preserve
 TAP output and keep transport fakes deterministic.  Runtime changes must update

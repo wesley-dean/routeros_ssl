@@ -1,0 +1,148 @@
+---
+name: Versioning
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.ref }}-${{ github.workflow }}"
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate release artifacts
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.calculate-version.outputs.version-string }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # pin@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Calculate version
+        id: calculate-version
+        uses: bitshifted/git-auto-semver@c4e8f005e839f822325356f141939cf6c76b5701 # pin@v1
+        with:
+          create_tag: false
+          initial_version: 0.0.1
+          tag_prefix: v
+
+      - name: Install release validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes bats
+
+      - name: Prepare and verify dependencies
+        run: |
+          make deps
+          make deps-check
+
+      - name: Build exact release artifacts
+        run: make build VERSION="${{ steps.calculate-version.outputs.version-string }}"
+
+      - name: Check and test exact release artifacts
+        run: |
+          make check VERSION="${{ steps.calculate-version.outputs.version-string }}"
+          make test VERSION="${{ steps.calculate-version.outputs.version-string }}"
+
+      - name: Validate exact release file set and checksums
+        shell: bash
+        run: |
+          expected=(
+            letsencrypt-routeros.dev.bash
+            letsencrypt-routeros.dev.bash.sha256
+            letsencrypt-routeros.bash
+            letsencrypt-routeros.bash.sha256
+            letsencrypt-routeros.min.bash
+            letsencrypt-routeros.min.bash.sha256
+          )
+          shopt -s nullglob
+          actual=(dist/*)
+          test "${#actual[@]}" -eq "${#expected[@]}"
+          for file in "${expected[@]}"; do
+            test -f "dist/${file}"
+          done
+          cd dist
+          for checksum in *.bash.sha256; do
+            sha256sum -c "${checksum}"
+          done
+
+      - name: Upload validated release files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: routeros-ssl-release-files
+          path: |
+            dist/letsencrypt-routeros.dev.bash
+            dist/letsencrypt-routeros.dev.bash.sha256
+            dist/letsencrypt-routeros.bash
+            dist/letsencrypt-routeros.bash.sha256
+            dist/letsencrypt-routeros.min.bash
+            dist/letsencrypt-routeros.min.bash.sha256
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish validated release
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download validated release files
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: routeros-ssl-release-files
+          path: dist
+
+      - name: Re-verify transferred release files
+        shell: bash
+        run: |
+          expected=(
+            letsencrypt-routeros.dev.bash
+            letsencrypt-routeros.dev.bash.sha256
+            letsencrypt-routeros.bash
+            letsencrypt-routeros.bash.sha256
+            letsencrypt-routeros.min.bash
+            letsencrypt-routeros.min.bash.sha256
+          )
+          shopt -s nullglob
+          actual=(dist/*)
+          test "${#actual[@]}" -eq "${#expected[@]}"
+          for file in "${expected[@]}"; do
+            test -f "dist/${file}"
+          done
+          cd dist
+          for checksum in *.bash.sha256; do
+            sha256sum -c "${checksum}"
+          done
+
+      - name: Create release from validated bytes
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # pin@v3.0.3
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          name: "v${{ needs.validate.outputs.version }}"
+          tag_name: "v${{ needs.validate.outputs.version }}"
+          target_commitish: "${{ github.sha }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/letsencrypt-routeros.dev.bash
+            dist/letsencrypt-routeros.dev.bash.sha256
+            dist/letsencrypt-routeros.bash
+            dist/letsencrypt-routeros.bash.sha256
+            dist/letsencrypt-routeros.min.bash
+            dist/letsencrypt-routeros.min.bash.sha256

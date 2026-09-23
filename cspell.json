@@ -13,6 +13,8 @@
     "kiprox",
     "letsencrypt",
     "Mikrotik",
+    "minified",
+    "minifier",
     "privkey",
     "RouterOS",
     "sourceable",
