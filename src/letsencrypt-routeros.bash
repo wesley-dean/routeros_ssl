@@ -274,7 +274,7 @@ validate_configuration() {
     return 1
   fi
 
-  if [[ ! "${ROUTEROS_HOST}" =~ ^[A-Za-z0-9_.:%\[\]-]+$ ]]; then
+  if [[ ! "${ROUTEROS_HOST}" =~ ^[A-Za-z0-9_.:%-]+$ ]]; then
     bashlog_error 'Unsafe RouterOS host: %s' "${ROUTEROS_HOST}"
     return 1
   fi
