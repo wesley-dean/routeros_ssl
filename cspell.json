@@ -2,14 +2,20 @@
   "version": "0.2",
   "language": "en",
   "words": [
+    "adrctl",
+    "bashdeps",
+    "bashlog",
+    "Bats",
     "Certbot",
     "certbot",
+    "Doxygen",
     "kiprox",
-    "SSTP",
-    "Mikrotik",
-    "RouterOS",
     "letsencrypt",
+    "Mikrotik",
     "privkey",
+    "RouterOS",
+    "sourceable",
+    "SSTP",
     "wesleydean"
   ]
 }

@@ -43,3 +43,31 @@ Prefer Bash built-ins and language features when they express an operation
 clearly and reliably.  In particular, prefer `[[ ... ]]`, parameter
 expansion, arrays, Bash regular expressions, arithmetic contexts, `printf`,
 and `read`/`mapfile` over avoidable external helper processes.
+## Build and Dependency Boundaries
+
+`letsencrypt-routeros.bash` is the maintained public entry point.  `dist/` and
+`vendor/` are generated state and must remain uncommitted.  Do not edit files
+under `dist/` or `vendor/` as maintained source.
+
+Make directly bootstraps only the pinned `vendor/bashdeps.bash` dependency.
+`dependencies.txt` owns ordinary repository dependencies.  `make deps` may use
+the network; `make deps-check`, `make build`, `make adr-index`, and `make docs`
+consume prepared state without fetching their own dependencies.  `make all`
+performs dependency convergence followed by the ordinary distribution build.
+
+The current distribution contract produces
+`dist/letsencrypt-routeros.bash` and its adjacent `.sha256` file.  Preserve
+the root public script for direct execution, sourcing, raw download, and
+container compatibility unless later accepted governance explicitly changes
+that contract.
+
+## ADR and Reference Documentation
+
+When adding or materially changing an ADR, update the curated `Current
+Decisions` digest above the marker and run `make adr-index` after dependencies
+are prepared.  Never hand-edit the generated inventory beneath the marker.
+
+Maintained Bash documentation follows
+`doc/standards/bash/documentation-standard.md`.  `make docs` validates the
+root script with the pinned bash-doxygen filter and writes ignored derivative
+HTML beneath `doc/reference/`.

@@ -36,8 +36,8 @@ HTTP-related services to use them.
 
 ## What it Does Not Do
 
-This script will not generate keys or certificates, not will it
-cryptographically sign anything.  All of that it outside of the scope for this
+This script will not generate keys or certificates, nor will it
+cryptographically sign anything.  All of that is outside of the scope for this
 tool.
 
 ## Why Use This Tool
@@ -259,6 +259,48 @@ One may build the image locally without extraneous considerations:
 ```bash
 docker build -t routeros_ssl .
 ```
+
+## Development
+
+The root `letsencrypt-routeros.bash` file remains the maintained public entry
+point.  Build and documentation tooling is coordinated through `make`, while
+ordinary repository dependencies are pinned in `dependencies.txt` and
+materialized beneath the ignored `vendor/` directory by `bashdeps`.
+
+`bashdeps` itself is bootstrapped by the Makefile from a pinned release and
+verified before it is allowed to process the dependency manifest.  The
+manifest currently prepares `bashlog`, `adrctl`, and `bash-doxygen`; pinning
+`bashlog` here does not change runtime logging behavior in this modernization
+step.
+
+Common targets include:
+
+- `make deps` to synchronize pinned dependencies;
+- `make deps-check` to verify prepared dependency bytes;
+- `make build` to build the distribution artifact without network access;
+- `make all` to prepare dependencies and then build;
+- `make adr-index` to regenerate the ADR inventory beneath its marker;
+- `make docs` to generate Doxygen HTML beneath `doc/reference/`; and
+- `make clean` or `make distclean` to remove generated state.
+
+### Distribution Artifact
+
+`make all` produces `dist/letsencrypt-routeros.bash` and the adjacent
+`dist/letsencrypt-routeros.bash.sha256`.  The generated executable contains
+build provenance including the version, source-revision date, and source
+commit identifier, then preserves the maintained script body.  `dist/` is
+generated derivative state and is not committed.
+
+Until the later three-flavor distribution model is adopted, releases attach
+those two files from `dist/`.  The historical root
+`letsencrypt-routeros.bash` path remains the public sourceable/executable entry
+point and remains the file used by the container image.
+
+### Reference Documentation
+
+`make docs` validates the maintained Bash documentation with the pinned
+`bash-doxygen` filter and generates Doxygen HTML beneath `doc/reference/`.
+Generated reference documentation is derivative output and is not committed.
 
 ## Project Governance
 
