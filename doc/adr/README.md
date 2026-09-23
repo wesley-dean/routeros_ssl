@@ -78,6 +78,18 @@ publication consumes the exact six previously tested bytes.
 
 See [ADR-007](ADR-007-adopt-three-flavor-distribution-artifacts.md).
 
+### ADR-008: Publish Generated Reference Documentation Through GitHub Pages
+
+Generated Doxygen HTML beneath `doc/reference/` is published through a dedicated
+GitHub Pages workflow after dependencies are synchronized and verified through
+the existing Make/bashdeps boundary.  The workflow invokes `make docs`, verifies
+that generated documentation remains ignored and leaves the checkout clean, then
+uploads only `doc/reference/` for deployment.  ADR-004 continues to govern
+documentation generation; ADR-008 adds the public hosting contract it explicitly
+deferred.
+
+See [ADR-008](ADR-008-publish-generated-reference-documentation-through-github-pages.md).
+
 <!-- adrctl-generated-footer -->
 
 ## Architecture Decision Records
@@ -89,3 +101,4 @@ See [ADR-007](ADR-007-adopt-three-flavor-distribution-artifacts.md).
 * [ADR-005: Use Bats Characterization Tests with TAP Output](ADR-005-use-bats-characterization-tests-with-tap-output.md)
 * [ADR-006: Embed bashlog and Harden Runtime Boundaries](ADR-006-embed-bashlog-and-harden-runtime-boundaries.md)
 * [ADR-007: Adopt Three-Flavor Distribution Artifacts](ADR-007-adopt-three-flavor-distribution-artifacts.md)
+* [ADR-008: Publish Generated Reference Documentation Through GitHub Pages](ADR-008-publish-generated-reference-documentation-through-github-pages.md)
