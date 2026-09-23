@@ -260,6 +260,19 @@ One may build the image locally without extraneous considerations:
 docker build -t routeros_ssl .
 ```
 
+## Project Governance
+
+This repository adopts released standards from
+[wesley-dean/coding_standards](https://github.com/wesley-dean/coding_standards).
+The committed snapshot lives beneath `doc/standards/`, and
+`.codingstandardrc` records the concrete release and release-archive digest.
+Applicable standards are project requirements unless an accepted
+repository-specific ADR or explicit local policy refines or supersedes them.
+
+Imported standards are managed as a complete external snapshot and should not
+be edited locally.  Repository-specific architectural decisions are recorded
+under `doc/adr/`.
+
 ## Very Special Thanks
 
 This script was based on the file work by [kiprox](https://github.com/kiprox)
