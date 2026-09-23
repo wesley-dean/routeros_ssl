@@ -43,6 +43,7 @@ Prefer Bash built-ins and language features when they express an operation
 clearly and reliably.  In particular, prefer `[[ ... ]]`, parameter
 expansion, arrays, Bash regular expressions, arithmetic contexts, `printf`,
 and `read`/`mapfile` over avoidable external helper processes.
+
 ## Build and Dependency Boundaries
 
 `letsencrypt-routeros.bash` is the maintained public entry point.  `dist/` and
