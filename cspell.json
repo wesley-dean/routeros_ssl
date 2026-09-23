@@ -3,6 +3,7 @@
   "language": "en",
   "words": [
     "adrctl",
+    "argv",
     "bashdeps",
     "bashlog",
     "Bats",

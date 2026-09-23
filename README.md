@@ -89,16 +89,32 @@ exist first.
 
 The tool can be configured by several mechanisms:
 
-1. configuration files
-2. command line options
+1. environment variables
+2. configuration files
+3. command line options
+4. positional arguments
 
 #### Configuration Files
 
 The tool will look for `.env` and `letsencrypt-routeros.settings` in the
 current directory, in that order.  If both files exist, the `.env` file is
-read first, then the `letsencrypt-routeros.settings` file.  Parameters in
-`.env` file are overridden by everything else.  It is recommended that only
-one of the two files is present to simplify debugging.
+read first, then the `letsencrypt-routeros.settings` file.  An explicit
+`CONFIG_FILE` suppresses this automatic discovery and is the only file loaded.
+No configuration file is required when the environment and/or command line
+provide all required values.
+
+
+Configuration precedence is:
+
+1. inherited environment values;
+2. an explicit `CONFIG_FILE`, or automatically discovered files;
+3. command-line options;
+4. positional arguments for values still unset; and
+5. built-in defaults, including `ROUTEROS_USER=admin`.
+
+When automatic discovery is used, `.env` is sourced before
+`letsencrypt-routeros.settings`, so the settings file has the higher
+configuration-file precedence.
 
 Both of these files are sourced as Bash scripts.  Therefore, the entirety of
 the Bash scripting language is available for use.  That said, it's likely for
@@ -262,16 +278,18 @@ docker build -t routeros_ssl .
 
 ## Development
 
-The root `letsencrypt-routeros.bash` file remains the maintained public entry
-point.  Build and documentation tooling is coordinated through `make`, while
-ordinary repository dependencies are pinned in `dependencies.txt` and
-materialized beneath the ignored `vendor/` directory by `bashdeps`.
+The maintained application source lives at `src/letsencrypt-routeros.bash`.
+The historical root `letsencrypt-routeros.bash` path remains the public
+sourceable/executable entry point, but it is a generated and committed
+compatibility artifact containing the pinned bashlog runtime.  Build and
+documentation tooling is coordinated through `make`, while repository
+dependencies are pinned in `dependencies.txt` and materialized beneath the
+ignored `vendor/` directory by `bashdeps`.
 
 `bashdeps` itself is bootstrapped by the Makefile from a pinned release and
-verified before it is allowed to process the dependency manifest.  The
-manifest currently prepares `bashlog`, `adrctl`, and `bash-doxygen`; pinning
-`bashlog` here does not change runtime logging behavior in this modernization
-step.
+verified before it is allowed to process the dependency manifest.  The manifest currently prepares `bashlog`, `adrctl`, and `bash-doxygen`.
+`bashlog` is embedded into generated consumer artifacts at build time, so
+runtime execution does not require `vendor/` or network access.
 
 Common targets include:
 
@@ -287,9 +305,9 @@ Common targets include:
 ### Distribution Artifact
 
 `make all` produces `dist/letsencrypt-routeros.bash` and the adjacent
-`dist/letsencrypt-routeros.bash.sha256`.  The generated executable contains
-build provenance including the version, source-revision date, and source
-commit identifier, then preserves the maintained script body.  `dist/` is
+`dist/letsencrypt-routeros.bash.sha256`.  The generated executable contains the pinned bashlog implementation plus the
+maintained application source and records version, source-revision date, and
+source commit provenance.  `dist/` is
 generated derivative state and is not committed.
 
 Until the later three-flavor distribution model is adopted, releases attach
@@ -317,10 +335,25 @@ can be selected without changing the tests:
 make test TEST_SCRIPT=dist/letsencrypt-routeros.bash
 ```
 
-Some tests intentionally document confirmed current defects, and skipped tests
-describe the corrected behavior expected from issue #112.  Those tests are
-part of the characterization contract rather than an assertion that the
-defective behavior is desirable.
+The suite now acts as regression coverage for the corrected runtime behavior.
+It exercises configuration precedence, sourceability, failure propagation,
+cleanup, argv-safe SSH/SCP construction, and RouterOS command validation.
+
+### Runtime Logging and Command Boundaries
+
+Errors and warnings are emitted through the embedded `bashlog` runtime on
+standard error.  Progress output remains on standard output.
+
+The runtime requires Bash 4.3 or newer plus OpenSSH's `ssh` and `scp`
+executables.  SSH/SCP commands are constructed as Bash arrays to preserve
+argument boundaries.  `ROUTEROS_SSH_OPTIONS` remains a compatibility string
+and is tokenized on shell whitespace without `eval`; embedded shell quoting
+inside that string is not interpreted.
+
+Values derived from `DOMAIN` are interpolated into RouterOS command text only
+after conservative validation.  Domain identifiers may contain ASCII letters,
+digits, underscore, dot, and hyphen, and must begin with an alphanumeric
+character or underscore.
 
 ### Reference Documentation
 

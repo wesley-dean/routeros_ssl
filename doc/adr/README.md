@@ -28,12 +28,11 @@ See [ADR-002](ADR-002-adopt-make-and-bashdeps-boundary.md).
 
 ### ADR-003: Preserve Public Entry Point and Single-Artifact Distribution
 
-The root `letsencrypt-routeros.bash` remains the maintained public entry point
-for direct execution, sourcing, raw download, and container use.  The build
-adds reproducible provenance to a generated ordinary artifact beneath `dist/`
-and creates an adjacent SHA-256 companion, while releases attach only those two
-generated files.  The later three-flavor backlog item may supersede the
-distribution portion of this decision without breaking the root path.
+The root `letsencrypt-routeros.bash` remains the public entry point for direct
+execution, sourcing, raw download, and container use.  ADR-006 supersedes the
+older decision that the root file is maintained source; it is now a generated
+compatibility artifact.  The single `dist/` artifact plus SHA-256 release
+contract remains in force until the three-flavor work supersedes it.
 
 See [ADR-003](ADR-003-preserve-entry-point-and-single-artifact-distribution.md).
 
@@ -54,9 +53,20 @@ Behavior tests use Bats, emit TAP, and replace live RouterOS transport with
 deterministic PATH-injected fakes.  The same suite targets either the root
 entry point or a generated artifact through `ROUTEROS_SSL_UNDER_TEST`, while
 CI runs root and ordinary distribution coverage as separate TAP streams.
-Known defects remain visibly identified or skipped for correction under #112.
+Corrected runtime behavior is protected as regression coverage under ADR-006.
 
 See [ADR-005](ADR-005-use-bats-characterization-tests-with-tap-output.md).
+
+### ADR-006: Embed bashlog and Harden Runtime Boundaries
+
+Maintained application source moves to `src/`, while the historical root path
+becomes a deterministic generated compatibility artifact containing pinned
+bashlog v0.0.18.  SSH/SCP use argv arrays, RouterOS-interpolated identifiers
+cross a conservative validation boundary, and reusable functions return status
+without terminating sourcing shells.  Cleanup is explicit after partial
+workflow failures, with primary failure categories preserved.
+
+See [ADR-006](ADR-006-embed-bashlog-and-harden-runtime-boundaries.md).
 
 <!-- adrctl-generated-footer -->
 
@@ -67,3 +77,4 @@ See [ADR-005](ADR-005-use-bats-characterization-tests-with-tap-output.md).
 * [ADR-003: Preserve Public Entry Point and Single-Artifact Distribution](ADR-003-preserve-entry-point-and-single-artifact-distribution.md)
 * [ADR-004: Generate Reference Documentation and ADR Inventory](ADR-004-generate-reference-documentation-and-adr-inventory.md)
 * [ADR-005: Use Bats Characterization Tests with TAP Output](ADR-005-use-bats-characterization-tests-with-tap-output.md)
+* [ADR-006: Embed bashlog and Harden Runtime Boundaries](ADR-006-embed-bashlog-and-harden-runtime-boundaries.md)

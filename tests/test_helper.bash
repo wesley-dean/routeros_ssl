@@ -16,7 +16,8 @@ setup_common() {
   ROUTEROS_SSL_COMMAND_LOG="${COMMAND_LOG}"
   export ROUTEROS_SSL_COMMAND_LOG
   ROUTEROS_SSL_SCP_COUNT_FILE="${TEST_TMPDIR}/scp-count"
-  export ROUTEROS_SSL_SCP_COUNT_FILE
+  ROUTEROS_SSL_SSH_MATCH_COUNT_FILE="${TEST_TMPDIR}/ssh-match-count"
+  export ROUTEROS_SSL_SCP_COUNT_FILE ROUTEROS_SSL_SSH_MATCH_COUNT_FILE
 
   mkdir -p "$HOME" "$FAKE_BIN"
   : >"$COMMAND_LOG"
@@ -81,7 +82,17 @@ printf '\n' >>"$ROUTEROS_SSL_COMMAND_LOG"
 
 if [[ -n "${FAKE_SSH_FAIL_MATCH:-}" &&
       "$*" == *"${FAKE_SSH_FAIL_MATCH}"* ]]; then
-  exit "${FAKE_SSH_FAIL_STATUS:-1}"
+  count=0
+  if [[ -f "${ROUTEROS_SSL_SSH_MATCH_COUNT_FILE:-}" ]]; then
+    IFS= read -r count <"$ROUTEROS_SSL_SSH_MATCH_COUNT_FILE"
+  fi
+  ((count += 1))
+  printf '%s\n' "$count" >"$ROUTEROS_SSL_SSH_MATCH_COUNT_FILE"
+
+  if [[ "${FAKE_SSH_FAIL_MATCH_CALL:-0}" == 0 ||
+        "${FAKE_SSH_FAIL_MATCH_CALL}" == "$count" ]]; then
+    exit "${FAKE_SSH_FAIL_STATUS:-1}"
+  fi
 fi
 
 exit "${FAKE_SSH_STATUS:-0}"
@@ -109,19 +120,24 @@ fi
 exit "${FAKE_SCP_STATUS:-0}"
 SCRIPT
 
-  cat >"${FAKE_BIN}/sleep" <<'SCRIPT'
-#!/usr/bin/env bash
-printf 'sleep' >>"$ROUTEROS_SSL_COMMAND_LOG"
-for arg in "$@"; do
-  printf '\t%s' "$arg" >>"$ROUTEROS_SSL_COMMAND_LOG"
-done
-printf '\n' >>"$ROUTEROS_SSL_COMMAND_LOG"
-SCRIPT
-
-  chmod 0755 "${FAKE_BIN}/ssh" "${FAKE_BIN}/scp" "${FAKE_BIN}/sleep"
+  chmod 0755 "${FAKE_BIN}/ssh" "${FAKE_BIN}/scp"
 }
 
 read_command_log() {
   COMMAND_LOG_CONTENT="$(<"$COMMAND_LOG")"
   export COMMAND_LOG_CONTENT
+}
+
+count_logged_commands() {
+  local pattern="$1"
+  local count=0
+  local command
+
+  while IFS= read -r command; do
+    if [[ "$command" == *"$pattern"* ]]; then
+      ((count += 1))
+    fi
+  done <"$COMMAND_LOG"
+
+  printf '%s\n' "$count"
 }

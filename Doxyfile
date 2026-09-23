@@ -11,7 +11,7 @@ GENERATE_RTF           = NO
 GENERATE_XML           = NO
 
 INPUT                  = README.md \
-                         letsencrypt-routeros.bash \
+                         src/letsencrypt-routeros.bash \
                          doc/adr \
                          doc/standards/bash/documentation-standard.md
 RECURSIVE              = YES

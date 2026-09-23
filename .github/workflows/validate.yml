@@ -37,6 +37,7 @@ jobs:
         run: |
           make build
           make check
+          git diff --exit-code -- letsencrypt-routeros.bash
           cd dist
           sha256sum -c letsencrypt-routeros.bash.sha256
 
