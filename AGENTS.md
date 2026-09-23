@@ -46,9 +46,10 @@ and `read`/`mapfile` over avoidable external helper processes.
 
 ## Build and Dependency Boundaries
 
-`letsencrypt-routeros.bash` is the maintained public entry point.  `dist/` and
-`vendor/` are generated state and must remain uncommitted.  Do not edit files
-under `dist/` or `vendor/` as maintained source.
+`src/letsencrypt-routeros.bash` is maintained application source.  The root
+`letsencrypt-routeros.bash` is a generated, committed compatibility artifact;
+do not edit it directly.  `dist/` and `vendor/` are generated state and must
+remain uncommitted.
 
 Make directly bootstraps only the pinned `vendor/bashdeps.bash` dependency.
 `dependencies.txt` owns ordinary repository dependencies.  `make deps` may use
@@ -69,9 +70,9 @@ Decisions` digest above the marker and run `make adr-index` after dependencies
 are prepared.  Never hand-edit the generated inventory beneath the marker.
 
 Maintained Bash documentation follows
-`doc/standards/bash/documentation-standard.md`.  `make docs` validates the
-root script with the pinned bash-doxygen filter and writes ignored derivative
-HTML beneath `doc/reference/`.
+`doc/standards/bash/documentation-standard.md`.  `make docs` validates
+`src/letsencrypt-routeros.bash` with the pinned bash-doxygen filter and writes
+ignored derivative HTML beneath `doc/reference/`.
 
 ## Characterization Testing
 
@@ -85,8 +86,7 @@ maps `TEST_SCRIPT` to that variable.  Keep the suite artifact-agnostic so the
 same tests can exercise the root entry point and generated distribution
 artifacts.
 
-Known defects may be characterized explicitly when the test name identifies
-the defect and references the follow-up issue.  Desired corrected behavior may
-remain skipped until the owning bug-fix issue is implemented.  Do not alter the
-runtime implementation merely to make a characterization test green.
+The suite is regression coverage for the corrected runtime contract.  Preserve
+TAP output and keep transport fakes deterministic.  Runtime changes must update
+or extend tests when observable behavior changes.
 

@@ -10,120 +10,90 @@ teardown() {
   teardown_common
 }
 
-@test "sourcing the script defines functions without running main" {
-  run bash -c 'source "$1" || true; printf "%s\n" sourced' _ "$SCRIPT"
+@test "sourcing succeeds without running main" {
+  run bash -c 'source "$1"; printf "%s\n" sourced' _ "$SCRIPT"
 
   [ "$status" -eq 0 ]
   [ "$output" = "sourced" ]
 }
 
-@test "source-time defaults expose the current administrative user" {
-  run bash -c     'source "$1" || true; printf "%s|%s\n" "$ROUTEROS_USER" "$ROUTEROS_SSH_OPTIONS"'     _ "$SCRIPT"
+@test "sourcing does not enable errexit in the caller" {
+  run bash -c '
+    set +e
+    source "$1"
+    [[ $- != *e* ]]
+  ' _ "$SCRIPT"
 
   [ "$status" -eq 0 ]
-  [ "$output" = "admin|" ]
 }
 
-@test "usage_help lists both supported configuration file names" {
-  run bash -c 'source "$1" || true; usage_help' _ "$SCRIPT"
+@test "source-time defaults defer the administrative user and certificate paths" {
+  run bash -c '
+    source "$1"
+    printf "%s|%s|%s|%s\n"       "$ROUTEROS_USER" "$ROUTEROS_SSH_PORT" "$CERTIFICATE" "$KEY"
+  ' _ "$SCRIPT"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"* .env"* ]]
-  [[ "$output" == *"* letsencrypt-routeros.settings"* ]]
+  [ "$output" = "|||" ]
 }
 
-@test "help currently documents -h as the RouterOS host [known defect #112]" {
-  run bash -c 'source "$1" || true; usage_help' _ "$SCRIPT"
+@test "usage_help documents -H for host and -h for help" {
+  run bash -c 'source "$1"; usage_help' _ "$SCRIPT"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"-h [RouterOS Host]"* ]]
+  [[ "$output" == *"-H [RouterOS Host]"* ]]
+  [[ "$output" == *$'  -h\n'* ]]
+  [[ "$output" != *"-h [RouterOS Host]"* ]]
 }
 
-@test "executable -h prints usage after an explicit config is loaded" {
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT" -h
+@test "help succeeds without loading an invalid explicit config" {
+  run env CONFIG_FILE="${TEST_TMPDIR}/missing.conf" "$SCRIPT" -h
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"or use a configuration file:"* ]]
+  [[ "$output" == *"or use configuration files:"* ]]
 }
 
-@test "invalid options currently print usage and exit zero [known defect #112]" {
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT" -Z
+@test "invalid options return non-zero" {
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT" -Z
 
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"illegal option"* ]]
-  [[ "$output" == *"or use a configuration file:"* ]]
-}
-
-@test "invalid options should return non-zero after #112" {
-  skip "blocked by #112: invalid-option status is currently zero"
-
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT" -Z
   [ "$status" -ne 0 ]
+  [[ "$output" == *"Unknown option -Z"* ]]
 }
 
-@test "SSH port is currently undeclared after sourcing [known defect #112]" {
-  run bash -c 'source "$1" || true; [[ -v ROUTEROS_SSH_PORT ]]' _ "$SCRIPT"
+@test "formerly accepted -i option is rejected" {
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT" -i
 
-  [ "$status" -eq 1 ]
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Unknown option -i"* ]]
 }
 
-@test "certificate defaults currently bind before DOMAIN is assigned [known defect #112]" {
+@test "SSH port is declared after sourcing" {
+  run bash -c 'source "$1"; [[ -v ROUTEROS_SSH_PORT ]]' _ "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+}
+
+@test "certificate defaults are derived only after DOMAIN is resolved" {
   run bash -c '
-    source "$1" || true
+    source "$1"
+    ROUTEROS_HOST=router.example.test
+    ROUTEROS_SSH_PORT=22
+    ROUTEROS_PRIVATE_KEY=/tmp/id
     DOMAIN=late.example.test
+    resolve_configuration
     printf "%s|%s\n" "$CERTIFICATE" "$KEY"
   ' _ "$SCRIPT"
 
   [ "$status" -eq 0 ]
-  [ "$output" = "/etc/letsencrypt//live/cert.pem|/etc/letsencrypt//live/privkey.pem" ]
-}
-
-@test "certificate defaults should be derived after DOMAIN is known after #112" {
-  skip "blocked by #112: CERTIFICATE and KEY defaults are evaluated too early"
-
-  run bash -c '
-    source "$1" || true
-    DOMAIN=late.example.test
-    resolve_defaults
-    printf "%s|%s\n" "$CERTIFICATE" "$KEY"
-  ' _ "$SCRIPT"
-
   [ "$output" = "/etc/letsencrypt/live/late.example.test/cert.pem|/etc/letsencrypt/live/late.example.test/privkey.pem" ]
 }
 
-@test "accepted but unhandled -i option is currently ignored [known defect #112]" {
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" bash "$SCRIPT" -i
+@test "selected public artifact is executable" {
+  [ -x "$SCRIPT" ]
+}
+
+@test "public artifact can be executed directly" {
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT" -h
 
   [ "$status" -eq 0 ]
-}
-
-@test "sourcing currently returns non-zero after defining functions [known defect #112]" {
-  run bash -c '
-    if source "$1"; then
-      rc=0
-    else
-      rc=$?
-    fi
-    printf "%s\n" "$rc"
-  ' _ "$SCRIPT"
-
-  [ "$status" -eq 0 ]
-  [ "$output" = "1" ]
-}
-
-@test "sourcing should return zero after #112" {
-  skip "blocked by #112: the final source guard currently leaves status 1"
-
-  run bash -c 'source "$1"' _ "$SCRIPT"
-  [ "$status" -eq 0 ]
-}
-
-@test "root public entry point currently lacks executable mode [known defect #112]" {
-  [ ! -x "$PROJECT_ROOT/letsencrypt-routeros.bash" ]
-}
-
-@test "root public entry point should be directly executable after #112" {
-  skip "blocked by #112: the root Git mode is currently 100644"
-
-  [ -x "$PROJECT_ROOT/letsencrypt-routeros.bash" ]
 }

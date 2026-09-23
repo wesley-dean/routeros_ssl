@@ -72,3 +72,8 @@ SPELL_CSPELL_FILE_EXTENSIONS:
 
 # So SARIF files for resolved issues aren't re-sent
 CLEAR_REPORT_FOLDER: true
+
+# The root executable is a generated compatibility artifact with embedded
+# bashlog.  Maintained source is linted separately under src/.
+BASH_SHELLCHECK_FILTER_REGEX_EXCLUDE: "^letsencrypt-routeros\\.bash$"
+BASH_SHFMT_FILTER_REGEX_EXCLUDE: "^letsencrypt-routeros\\.bash$"
