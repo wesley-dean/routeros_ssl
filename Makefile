@@ -289,7 +289,7 @@ test: build
 	if ! run_tests development "$(DIST_DEV_SCRIPT)"; then status=1; fi; \
 	if ! run_tests ordinary "$(DIST_SCRIPT)"; then status=1; fi; \
 	if ! run_tests minified "$(DIST_MIN_SCRIPT)"; then status=1; fi; \
-	exit "$status"
+	exit "$$status"
 
 clean: docs-clean
 	rm -rf "$(DIST_DIR)" "$(TEST_RESULTS_DIR)"
