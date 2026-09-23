@@ -313,6 +313,9 @@ build_transport_commands() {
     read -r -a extra_options <<< "${ROUTEROS_SSH_OPTIONS}"
   fi
 
+  # Keep each array mutation on a complete physical line while Bash-Minifier
+  # cannot parse multiline compound array assignments:
+  # https://github.com/Zuzzuc/Bash-minifier/issues/12
   routeros_ssh=(ssh)
   routeros_ssh+=(-i "${ROUTEROS_PRIVATE_KEY}")
   routeros_ssh+=(-p "${ROUTEROS_SSH_PORT}")
