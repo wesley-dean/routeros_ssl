@@ -53,17 +53,22 @@ producing the most complete test report practical for review.
 the repository cleanup target, and SHALL be excluded explicitly from MegaLinter
 in addition to being covered by ignored-file handling.
 
-The `Validate` workflow SHALL retain read-only repository permissions.  After
-validation, including on ordinary test or validation failure unless the run was
-cancelled, it SHALL preserve the source GitHub event metadata alongside generated
-JUnit reports and upload them as a workflow artifact.
+The `Validate` workflow SHALL retain read-only repository permissions.  Its
+code-executing validation job SHALL upload generated JUnit reports after test
+execution, including on ordinary test or validation failure unless the run was
+cancelled.
+
+The source GitHub event metadata SHALL be uploaded by a separate job in the same
+workflow that does not check out or execute repository code.  This keeps pull-
+request code from controlling the event artifact used later to associate results
+with a pull request.
 
 A separate `workflow_run` workflow SHALL publish test results after `Validate`
 completes successfully or unsuccessfully.  The publishing workflow SHALL:
 
 1. execute from the trusted default-branch workflow definition;
-2. use `actions: read` to download the validation artifact from the completed
-   workflow run;
+2. use `actions: read` to download the isolated event and test-result artifacts
+   from the completed workflow run;
 3. use `checks: write` and `pull-requests: write` only for result publication;
 4. not check out, source, or execute pull-request repository code;
 5. use the preserved source event metadata so pull requests from forks and
@@ -125,7 +130,9 @@ weakening the test gate.
 
 The repository gains a second CI workflow with narrowly scoped write permissions.
 That workflow consumes only uploaded event metadata and JUnit data and does not
-execute pull-request code.
+execute pull-request code.  Event metadata is produced by a no-checkout job, while
+JUnit remains explicitly untrusted reporting data from the code-executing
+validation job.
 
 The `workflow_run` publisher must exist on the default branch before GitHub will
 use it for completed validation runs.  Therefore, the pull request introducing
