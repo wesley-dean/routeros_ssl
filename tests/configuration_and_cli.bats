@@ -143,7 +143,7 @@ teardown() {
 }
 
 @test "unsafe domain is rejected before any transport command" {
-  run env CONFIG_FILE="$CONFIG_FILE_PATH"     DOMAIN='bad;system-reboot'     "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT" -d 'bad;system-reboot'
 
   [ "$status" -eq 1 ]
   [ ! -s "$COMMAND_LOG" ]
