@@ -67,7 +67,7 @@ declare -a routeros_scp=()
 
 # Maintained source loads the prepared dependency.  Built artifacts embed
 # bashlog before this source, so this branch is skipped for consumers.
-if ! declare -F bashlog_error >/dev/null 2>&1; then
+if ! declare -F bashlog_error > /dev/null 2>&1; then
   __routeros_ssl_source_path="${BASH_SOURCE[0]}"
   __routeros_ssl_source_dir="${__routeros_ssl_source_path%/*}"
   if [[ "${__routeros_ssl_source_dir}" == "${__routeros_ssl_source_path}" ]]; then
@@ -194,7 +194,7 @@ load_configuration() {
 ## @retval 0 Required configuration was resolved.
 ## @retval 1 A required value is missing or extra positionals were supplied.
 resolve_configuration() {
-  if (( $# > 5 )); then
+  if (($# > 5)); then
     bashlog_error 'Too many positional arguments'
     return 1
   fi
@@ -279,8 +279,8 @@ validate_configuration() {
     return 1
   fi
 
-  if [[ ! "${ROUTEROS_SSH_PORT}" =~ ^[0-9]+$ ]] ||
-    (( ROUTEROS_SSH_PORT < 1 || ROUTEROS_SSH_PORT > 65535 )); then
+  if [[ ! "${ROUTEROS_SSH_PORT}" =~ ^[0-9]+$ ]] \
+                                                || ((ROUTEROS_SSH_PORT < 1 || ROUTEROS_SSH_PORT > 65535)); then
     bashlog_error 'Invalid RouterOS SSH port: %s' "${ROUTEROS_SSH_PORT}"
     return 1
   fi
@@ -310,7 +310,7 @@ build_transport_commands() {
   local -a extra_options=()
 
   if [[ -n "${ROUTEROS_SSH_OPTIONS}" ]]; then
-    read -r -a extra_options <<<"${ROUTEROS_SSH_OPTIONS}"
+    read -r -a extra_options <<< "${ROUTEROS_SSH_OPTIONS}"
   fi
 
   routeros_ssh=(
@@ -486,8 +486,8 @@ upload_file() {
   local remote_file="${2?Error: no remote file provided}"
   local cert_name="${3?Error: no cert_name provided}"
 
-  if ! validate_routeros_name "${remote_file}" ||
-    ! validate_routeros_name "${cert_name}"; then
+  if ! validate_routeros_name "${remote_file}" \
+                                               || ! validate_routeros_name "${cert_name}"; then
     bashlog_error 'Unsafe RouterOS filename or certificate name'
     return 64
   fi
@@ -791,8 +791,8 @@ main() {
     cleanup_status=7
   fi
 
-  if (( primary_status != 0 )); then
-    if (( cleanup_status != 0 )); then
+  if ((primary_status != 0)); then
+    if ((cleanup_status != 0)); then
       bashlog_error \
         'Cleanup also failed after primary workflow status %s' \
         "${primary_status}"
