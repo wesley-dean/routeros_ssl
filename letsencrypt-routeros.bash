@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-
 ## @file letsencrypt-routeros.bash
 ## @brief Uploads an existing TLS certificate and private key to RouterOS.
 ## @details
@@ -24,10 +23,12 @@
 ## @see doc/adr/README.md
 ## @par Examples
 ## @code
-## ./letsencrypt-routeros.bash admin router.example.com 22 ~/.ssh/id_rsa example.com
+## ./letsencrypt-routeros.bash admin router.example.com 22 \
+##   ~/.ssh/id_rsa example.com
 ## ./letsencrypt-routeros.bash -u admin -H router.example.com -p 22 \
 ##   -k ~/.ssh/id_rsa -d example.com
 ## @endcode
+
 
 set -euo pipefail
 
@@ -404,7 +405,7 @@ delete_file() {
 ## @warning An unknown service causes the legacy implementation to exit the
 ## current shell with status 100 instead of returning to the caller.
 ##
-## @param cert_name RouterOS certificate-store name; defaults to `$DOMAIN.pem_0`.
+## @param cert_name RouterOS certificate name; defaults to `$DOMAIN.pem_0`.
 ##
 ## @par STDIN
 ## Nothing is read from STDIN.
