@@ -340,9 +340,14 @@ make test
 ```
 
 `make test` runs the same TAP suite separately against the committed root
-compatibility file and all three generated distribution flavors.  The suite
-acts as regression coverage for the corrected runtime behavior.
-It exercises configuration precedence, sourceability, failure propagation,
+compatibility file and all three generated distribution flavors.  Each Bats
+invocation also writes derivative JUnit XML beneath `test-results/` from the
+same execution so CI can publish durable pull-request feedback without replacing
+TAP as the canonical test stream.  The suite completes all four artifact runs
+before returning a nonzero status if any run failed.
+
+The suite acts as regression coverage for the corrected runtime behavior.  It
+exercises configuration precedence, sourceability, failure propagation,
 cleanup, argv-safe SSH/SCP construction, and RouterOS command validation.
 
 ### Runtime Logging and Command Boundaries

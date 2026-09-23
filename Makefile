@@ -26,6 +26,7 @@ BASHLOG_VERSION := 0.0.18
 BASH_MINIFIER := $(VENDOR_DIR)/bash-minifier.bash
 DOCS_OUTPUT := doc/reference
 TEST_DIR := tests
+TEST_RESULTS_DIR := test-results
 
 VERSION ?= 0.0.0-dev
 BUILD_COMMIT ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || printf 'unknown')
@@ -266,14 +267,32 @@ check: build
 	bash -n "$(TEST_DIR)/test_helper.bash"
 
 test: build
-	@set -e; \
-	for artifact in "$(SCRIPT)" $(DIST_SCRIPTS); do \
+	@rm -rf "$(TEST_RESULTS_DIR)"
+	@mkdir -p "$(TEST_RESULTS_DIR)"
+	@run_tests() { \
+		name=$$1; \
+		artifact=$$2; \
+		report_dir="$(TEST_RESULTS_DIR)/$$name"; \
+		mkdir -p "$$report_dir"; \
 		printf 'Testing %s\n' "$$artifact"; \
-		ROUTEROS_SSL_UNDER_TEST="$(CURDIR)/$$artifact" bats --tap "$(TEST_DIR)"; \
-	done
+		if ! ROUTEROS_SSL_UNDER_TEST="$(CURDIR)/$$artifact" \
+			bats \
+				--formatter tap \
+				--report-formatter junit \
+				--output "$$report_dir" \
+				"$(TEST_DIR)"; then \
+			return 1; \
+		fi; \
+	}; \
+	status=0; \
+	if ! run_tests root "$(SCRIPT)"; then status=1; fi; \
+	if ! run_tests development "$(DIST_DEV_SCRIPT)"; then status=1; fi; \
+	if ! run_tests ordinary "$(DIST_SCRIPT)"; then status=1; fi; \
+	if ! run_tests minified "$(DIST_MIN_SCRIPT)"; then status=1; fi; \
+	exit "$$status"
 
 clean: docs-clean
-	rm -rf "$(DIST_DIR)"
+	rm -rf "$(DIST_DIR)" "$(TEST_RESULTS_DIR)"
 
 distclean: clean
 	rm -rf "$(VENDOR_DIR)"

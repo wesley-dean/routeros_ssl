@@ -79,13 +79,17 @@ ignored derivative HTML beneath `doc/reference/`.
 Behavior tests live beneath `tests/` and use Bats.  They must not require a
 live RouterOS device or real credentials; use deterministic PATH-injected
 fakes for external transport boundaries.  The canonical test command is
-`make test`, which emits TAP through `bats --tap`.
+`make test`, which emits TAP as the console format.  The same Bats invocations
+also write derivative JUnit XML beneath ignored `test-results/` for CI
+publication; JUnit does not replace TAP as the repository test interface.
 
 Tests select the executable through `ROUTEROS_SSL_UNDER_TEST`.  `make test`
-runs the same TAP suite against the root compatibility file and all three
-`dist/` flavors.  Keep the suite artifact-agnostic.
+runs the same suite against the root compatibility file and all three `dist/`
+flavors, attempts every flavor even when an earlier run fails, and returns
+nonzero if any run failed.  Keep the suite artifact-agnostic.
 
 The suite is regression coverage for the corrected runtime contract.  Preserve
-TAP output and keep transport fakes deterministic.  Runtime changes must update
-or extend tests when observable behavior changes.
+TAP output, keep generated test reports disposable, and keep transport fakes
+deterministic.  Runtime changes must update or extend tests when observable
+behavior changes.
 

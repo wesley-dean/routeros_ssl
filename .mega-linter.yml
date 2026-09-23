@@ -5,6 +5,7 @@ ADDITIONAL_EXCLUDED_DIRECTORIES:
     report,
     megalinter-reports,
     tests,
+    test-results,
     vendor,
     dist,
     doc/reference,
@@ -12,7 +13,7 @@ ADDITIONAL_EXCLUDED_DIRECTORIES:
   ]
 
 # don't lint test files or documentation
-FILTER_REGEX_EXCLUDE: (.venv/|/tests?/|\.test\.|_test\.|/docs/|/doc/standards/|/doc/reference/|/dist/|/vendor/|/index.html|.github/.*\.html)
+FILTER_REGEX_EXCLUDE: (.venv/|/tests?/|/test-results/|\.test\.|_test\.|/docs/|/doc/standards/|/doc/reference/|/dist/|/vendor/|/index.html|.github/.*\.html)
 
 # don't scan files listed in .gitignore (e.g., node_modules)
 IGNORE_GITIGNORED_FILES: true

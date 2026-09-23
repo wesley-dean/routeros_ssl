@@ -49,10 +49,11 @@ See [ADR-004](ADR-004-generate-reference-documentation-and-adr-inventory.md).
 ### ADR-005: Use Bats Characterization Tests with TAP Output
 
 Behavior tests use Bats, emit TAP, and replace live RouterOS transport with
-deterministic PATH-injected fakes.  The same suite targets either the root
-entry point or a generated artifact through `ROUTEROS_SSL_UNDER_TEST`, while
-CI runs root and ordinary distribution coverage as separate TAP streams.
-Corrected runtime behavior is protected as regression coverage under ADR-006.
+deterministic PATH-injected fakes.  The same artifact-agnostic suite targets the
+root entry point and generated distribution flavors through
+`ROUTEROS_SSL_UNDER_TEST`.  ADR-009 preserves TAP as the canonical test stream
+while allowing derivative JUnit reports from the same Bats executions for CI
+publication.
 
 See [ADR-005](ADR-005-use-bats-characterization-tests-with-tap-output.md).
 
@@ -90,6 +91,17 @@ deferred.
 
 See [ADR-008](ADR-008-publish-generated-reference-documentation-through-github-pages.md).
 
+### ADR-009: Publish Derivative JUnit Test Reports While Preserving TAP
+
+`make test` keeps TAP as its canonical console output while each artifact run
+also emits derivative JUnit XML beneath ignored `test-results/` from the same
+Bats execution.  Validation remains read-only: the code-executing job uploads
+JUnit data while a separate no-checkout job preserves source event metadata.
+A `workflow_run` publisher receives only the permissions needed to create checks
+and durable pull-request comments and never executes pull-request code.
+
+See [ADR-009](ADR-009-publish-derivative-junit-test-reports-while-preserving-tap.md).
+
 <!-- adrctl-generated-footer -->
 
 ## Architecture Decision Records
@@ -102,3 +114,4 @@ See [ADR-008](ADR-008-publish-generated-reference-documentation-through-github-p
 * [ADR-006: Embed bashlog and Harden Runtime Boundaries](ADR-006-embed-bashlog-and-harden-runtime-boundaries.md)
 * [ADR-007: Adopt Three-Flavor Distribution Artifacts](ADR-007-adopt-three-flavor-distribution-artifacts.md)
 * [ADR-008: Publish Generated Reference Documentation Through GitHub Pages](ADR-008-publish-generated-reference-documentation-through-github-pages.md)
+* [ADR-009: Publish Derivative JUnit Test Reports While Preserving TAP](ADR-009-publish-derivative-junit-test-reports-while-preserving-tap.md)
