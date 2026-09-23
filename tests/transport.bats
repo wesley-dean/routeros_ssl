@@ -171,7 +171,7 @@ teardown() {
   cp "$SSH_KEY_FILE" "$spaced"
   write_config "$CONFIG_FILE_PATH"
 
-  run env     CONFIG_FILE="$CONFIG_FILE_PATH"     ROUTEROS_PRIVATE_KEY="$spaced"     "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" "$SCRIPT" -k "$spaced"
 
   [ "$status" -eq 0 ]
   read_command_log
