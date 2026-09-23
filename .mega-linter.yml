@@ -1,10 +1,10 @@
 ---
 # don't test the reports Mega-Linter created, docs, or test files
 ADDITIONAL_EXCLUDED_DIRECTORIES:
-  [report, megalinter-reports, vendor, dist, doc/reference, doc/standards]
+  [report, megalinter-reports, tests, vendor, dist, doc/reference, doc/standards]
 
 # don't lint test files or documentation
-FILTER_REGEX_EXCLUDE: (.venv/|/test/|\.test\.|_test\.|/docs/|/doc/standards/|/doc/reference/|/dist/|/vendor/|/index.html|.github/.*\.html)
+FILTER_REGEX_EXCLUDE: (.venv/|/tests?/|\.test\.|_test\.|/docs/|/doc/standards/|/doc/reference/|/dist/|/vendor/|/index.html|.github/.*\.html)
 
 # don't scan files listed in .gitignore (e.g., node_modules)
 IGNORE_GITIGNORED_FILES: true
