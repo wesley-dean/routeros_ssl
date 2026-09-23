@@ -1256,11 +1256,11 @@ if ! declare -F bashlog_error > /dev/null 2>&1; then
   __routeros_ssl_source_dir="$(
     cd -- "${__routeros_ssl_source_dir}" && pwd
   )"
-  __routeros_ssl_bashlog="${__routeros_ssl_source_dir}/../vendor/bashlog.bash"
+  __routeros_ssl_bashlog="${__routeros_ssl_source_dir}/../vendor/bashlog.dev.bash"
 
   if [[ ! -r "${__routeros_ssl_bashlog}" ]]; then
     printf '%s\n' \
-      'Missing vendor/bashlog.bash; run make deps or use a built artifact.' \
+      'Missing vendor/bashlog.dev.bash; run make deps or use a built artifact.' \
       >&2
     if [[ "$0" == "${BASH_SOURCE[0]}" ]]; then
       exit 1
