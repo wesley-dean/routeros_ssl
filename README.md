@@ -280,7 +280,8 @@ Common targets include:
 - `make build` to build the distribution artifact without network access;
 - `make all` to prepare dependencies and then build;
 - `make adr-index` to regenerate the ADR inventory beneath its marker;
-- `make docs` to generate Doxygen HTML beneath `doc/reference/`; and
+- `make docs` to generate Doxygen HTML beneath `doc/reference/`;
+- `make test` to run TAP-formatted Bats characterization tests; and
 - `make clean` or `make distclean` to remove generated state.
 
 ### Distribution Artifact
@@ -295,6 +296,31 @@ Until the later three-flavor distribution model is adopted, releases attach
 those two files from `dist/`.  The historical root
 `letsencrypt-routeros.bash` path remains the public sourceable/executable entry
 point and remains the file used by the container image.
+
+### Characterization Tests
+
+The behavior suite uses Bats and does not require a live RouterOS device.
+External SSH/SCP interactions are replaced by deterministic PATH-injected test
+doubles, so the suite can exercise command construction, failure propagation,
+configuration handling, and service updates without changing remote state.
+
+Run the canonical TAP-formatted suite with:
+
+```bash
+make test
+```
+
+The target defaults to the maintained root entry point.  A different artifact
+can be selected without changing the tests:
+
+```bash
+make test TEST_SCRIPT=dist/letsencrypt-routeros.bash
+```
+
+Some tests intentionally document confirmed current defects, and skipped tests
+describe the corrected behavior expected from issue #112.  Those tests are
+part of the characterization contract rather than an assertion that the
+defective behavior is desirable.
 
 ### Reference Documentation
 

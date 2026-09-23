@@ -18,12 +18,14 @@ ADR_INDEX_FILE := doc/adr/README.md
 ADR_INDEX_MARKER := <!-- adrctl-generated-footer -->
 BASH_DOXYGEN := $(VENDOR_DIR)/doxygen-bash.awk
 DOCS_OUTPUT := doc/reference
+TEST_DIR := tests
+TEST_SCRIPT ?= $(SCRIPT)
 
 VERSION ?= 0.0.0-dev
 BUILD_COMMIT ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || printf 'unknown')
 BUILD_DATE ?= $(shell git show -s --format=%cI HEAD 2>/dev/null || printf 'unknown')
 
-.PHONY: adr-index all build check clean deps deps-check distclean docs docs-clean FORCE verify-bashdeps
+.PHONY: adr-index all build check clean deps deps-check distclean docs docs-clean FORCE test verify-bashdeps
 
 all: deps
 	$(MAKE) --no-print-directory build
@@ -207,6 +209,14 @@ $(DIST_CHECKSUM): $(DIST_SCRIPT)
 check: build
 	bash -n "$(SCRIPT)"
 	bash -n "$(DIST_SCRIPT)"
+	bash -n "$(TEST_DIR)/test_helper.bash"
+
+test: build
+	@command -v bats >/dev/null 2>&1 || { \
+		printf '%s\n' 'bats is required to run characterization tests' >&2; \
+		exit 1; \
+	}
+	ROUTEROS_SSL_UNDER_TEST="$(abspath $(TEST_SCRIPT))" bats --tap "$(TEST_DIR)"
 
 clean: docs-clean
 	rm -rf "$(DIST_DIR)"
