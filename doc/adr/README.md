@@ -95,11 +95,10 @@ See [ADR-008](ADR-008-publish-generated-reference-documentation-through-github-p
 
 `make test` keeps TAP as its canonical console output while each artifact run
 also emits derivative JUnit XML beneath ignored `test-results/` from the same
-Bats execution.  Validation remains read-only and uploads the reports plus source
-event metadata, while a separate `workflow_run` publisher receives only the
-permissions needed to create checks and durable pull-request comments.  The
-publisher does not check out or execute pull-request code, preserving the trust
-boundary for fork and Dependabot contributions.
+Bats execution.  Validation remains read-only: the code-executing job uploads
+JUnit data while a separate no-checkout job preserves source event metadata.
+A `workflow_run` publisher receives only the permissions needed to create checks
+and durable pull-request comments and never executes pull-request code.
 
 See [ADR-009](ADR-009-publish-derivative-junit-test-reports-while-preserving-tap.md).
 
