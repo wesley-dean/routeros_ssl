@@ -1386,21 +1386,8 @@ build_transport_commands() {
     read -r -a extra_options <<< "${ROUTEROS_SSH_OPTIONS}"
   fi
 
-  routeros_ssh=(
-    ssh
-    -i "${ROUTEROS_PRIVATE_KEY}"
-    -p "${ROUTEROS_SSH_PORT}"
-    "${extra_options[@]}"
-    "${ROUTEROS_USER}@${ROUTEROS_HOST}"
-  )
-
-  routeros_scp=(
-    scp
-    -q
-    -P "${ROUTEROS_SSH_PORT}"
-    -i "${ROUTEROS_PRIVATE_KEY}"
-    "${extra_options[@]}"
-  )
+  routeros_ssh=(ssh -i "${ROUTEROS_PRIVATE_KEY}" -p "${ROUTEROS_SSH_PORT}" "${extra_options[@]}" "${ROUTEROS_USER}@${ROUTEROS_HOST}")
+  routeros_scp=(scp -q -P "${ROUTEROS_SSH_PORT}" -i "${ROUTEROS_PRIVATE_KEY}" "${extra_options[@]}")
 }
 
 verify_connection() {
