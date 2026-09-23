@@ -11,7 +11,7 @@ teardown() {
 }
 
 @test "verify_connection issues the RouterOS resource command" {
-  run bash -c     'source "$1"; routeros_ssh="ssh -i $2 user@router -p 22"; verify_connection'     _ "$SCRIPT" "$SSH_KEY_FILE"
+  run bash -c     'source "$1" || true; routeros_ssh="ssh -i $2 user@router -p 22"; verify_connection'     _ "$SCRIPT" "$SSH_KEY_FILE"
 
   [ "$status" -eq 0 ]
   read_command_log
@@ -25,7 +25,7 @@ teardown() {
   stderr_file="${TEST_TMPDIR}/stderr"
 
   run bash -c '
-    source "$1"
+    source "$1" || true
     routeros_ssh="ssh -i $2 user@router -p 22"
     if verify_connection >"$3" 2>"$4"; then
       rc=0
@@ -45,7 +45,7 @@ teardown() {
 
 @test "upload_file removes, uploads, sleeps, and imports in order" {
   run bash -c '
-    source "$1"
+    source "$1" || true
     ROUTEROS_USER=test-user
     ROUTEROS_HOST=router.example.test
     routeros_ssh="ssh"
@@ -67,7 +67,7 @@ teardown() {
   export FAKE_SCP_STATUS=9
 
   run bash -c '
-    source "$1"
+    source "$1" || true
     ROUTEROS_USER=test-user
     ROUTEROS_HOST=router.example.test
     routeros_ssh="ssh"
@@ -86,7 +86,7 @@ teardown() {
   export FAKE_SSH_FAIL_STATUS=9
 
   run bash -c '
-    source "$1"
+    source "$1" || true
     ROUTEROS_USER=test-user
     ROUTEROS_HOST=router.example.test
     routeros_ssh="ssh"
@@ -103,7 +103,7 @@ teardown() {
   export FAKE_SSH_FAIL_STATUS=8
 
   run bash -c '
-    source "$1"
+    source "$1" || true
     routeros_ssh="ssh"
     delete_file stale.pem
   ' _ "$SCRIPT"
@@ -116,13 +116,13 @@ teardown() {
   skip "blocked by #112: delete_file currently masks remote failure"
 
   export FAKE_SSH_FAIL_MATCH="/file remove"
-  run bash -c 'source "$1"; routeros_ssh="ssh"; delete_file stale.pem' _ "$SCRIPT"
+  run bash -c 'source "$1" || true; routeros_ssh="ssh"; delete_file stale.pem' _ "$SCRIPT"
   [ "$status" -ne 0 ]
 }
 
 @test "configure_services emits commands for www-ssl api-ssl and sstp" {
   run bash -c '
-    source "$1"
+    source "$1" || true
     routeros_ssh="ssh"
     configure_services example.pem_0
   ' _ "$SCRIPT"
@@ -137,7 +137,7 @@ teardown() {
 @test "configure_services returns 1 when www-ssl configuration fails" {
   export FAKE_SSH_FAIL_MATCH="www-ssl"
 
-  run bash -c     'source "$1"; routeros_ssh="ssh"; configure_services example.pem_0'     _ "$SCRIPT"
+  run bash -c     'source "$1" || true; routeros_ssh="ssh"; configure_services example.pem_0'     _ "$SCRIPT"
 
   [ "$status" -eq 1 ]
 }
@@ -145,7 +145,7 @@ teardown() {
 @test "configure_services returns 2 when api-ssl configuration fails" {
   export FAKE_SSH_FAIL_MATCH="api-ssl"
 
-  run bash -c     'source "$1"; routeros_ssh="ssh"; configure_services example.pem_0'     _ "$SCRIPT"
+  run bash -c     'source "$1" || true; routeros_ssh="ssh"; configure_services example.pem_0'     _ "$SCRIPT"
 
   [ "$status" -eq 2 ]
 }
@@ -153,7 +153,7 @@ teardown() {
 @test "configure_services returns 3 when sstp configuration fails" {
   export FAKE_SSH_FAIL_MATCH="sstp-server"
 
-  run bash -c     'source "$1"; routeros_ssh="ssh"; configure_services example.pem_0'     _ "$SCRIPT"
+  run bash -c     'source "$1" || true; routeros_ssh="ssh"; configure_services example.pem_0'     _ "$SCRIPT"
 
   [ "$status" -eq 3 ]
 }
@@ -161,7 +161,7 @@ teardown() {
 @test "cleanup suppresses both remote deletion failures [known defect #112]" {
   export FAKE_SSH_FAIL_MATCH="/file remove"
 
-  run bash -c     'source "$1"; routeros_ssh="ssh"; cleanup example.pem example.key'     _ "$SCRIPT"
+  run bash -c     'source "$1" || true; routeros_ssh="ssh"; cleanup example.pem example.key'     _ "$SCRIPT"
 
   [ "$status" -eq 0 ]
   mapfile -t commands <"$COMMAND_LOG"
@@ -172,7 +172,7 @@ teardown() {
 
 @test "upload_key currently masks upload_file failure in conditional context [known defect #112]" {
   run bash -c '
-    source "$1"
+    source "$1" || true
     upload_file() { return 9; }
     upload_key cert key key_0 || exit 5
     printf "%s\n" after-upload-key
@@ -187,7 +187,7 @@ teardown() {
   skip "blocked by #112: wrapper success currently masks upload_file failure"
 
   run bash -c '
-    source "$1"
+    source "$1" || true
     upload_file() { return 9; }
     upload_key cert key key_0
   ' _ "$SCRIPT"
@@ -200,13 +200,13 @@ teardown() {
 
   spaced="${TEST_TMPDIR}/ssh key"
   cp "$SSH_KEY_FILE" "$spaced"
-  run env CONFIG_FILE="$CONFIG_FILE_PATH" ROUTEROS_PRIVATE_KEY="$spaced" "$SCRIPT"
+  run env CONFIG_FILE="$CONFIG_FILE_PATH" ROUTEROS_PRIVATE_KEY="$spaced" bash "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
 @test "unknown configured service currently exits the caller with 100 [known defect #112]" {
   run bash -c '
-    source "$1"
+    source "$1" || true
     services=(unknown-service)
     routeros_ssh="ssh"
     configure_services example.pem_0
@@ -222,7 +222,7 @@ teardown() {
   skip "blocked by #112: configure_services currently exits the caller"
 
   run bash -c '
-    source "$1"
+    source "$1" || true
     services=(unknown-service)
     routeros_ssh="ssh"
     configure_services example.pem_0
