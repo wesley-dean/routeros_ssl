@@ -29,7 +29,6 @@
 ##   -k ~/.ssh/id_rsa -d example.com
 ## @endcode
 
-
 set -euo pipefail
 
 ## @var config_file_options
