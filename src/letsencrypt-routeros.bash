@@ -76,11 +76,11 @@ if ! declare -F bashlog_error > /dev/null 2>&1; then
   __routeros_ssl_source_dir="$(
     cd -- "${__routeros_ssl_source_dir}" && pwd
   )"
-  __routeros_ssl_bashlog="${__routeros_ssl_source_dir}/../vendor/bashlog.bash"
+  __routeros_ssl_bashlog="${__routeros_ssl_source_dir}/../vendor/bashlog.dev.bash"
 
   if [[ ! -r "${__routeros_ssl_bashlog}" ]]; then
     printf '%s\n' \
-      'Missing vendor/bashlog.bash; run make deps or use a built artifact.' \
+      'Missing vendor/bashlog.dev.bash; run make deps or use a built artifact.' \
       >&2
     if [[ "$0" == "${BASH_SOURCE[0]}" ]]; then
       exit 1
@@ -313,21 +313,20 @@ build_transport_commands() {
     read -r -a extra_options <<< "${ROUTEROS_SSH_OPTIONS}"
   fi
 
-  routeros_ssh=(
-    ssh
-    -i "${ROUTEROS_PRIVATE_KEY}"
-    -p "${ROUTEROS_SSH_PORT}"
-    "${extra_options[@]}"
-    "${ROUTEROS_USER}@${ROUTEROS_HOST}"
-  )
+  # Keep each array mutation on a complete physical line while Bash-Minifier
+  # cannot parse multiline compound array assignments:
+  # https://github.com/Zuzzuc/Bash-minifier/issues/12
+  routeros_ssh=(ssh)
+  routeros_ssh+=(-i "${ROUTEROS_PRIVATE_KEY}")
+  routeros_ssh+=(-p "${ROUTEROS_SSH_PORT}")
+  routeros_ssh+=("${extra_options[@]}")
+  routeros_ssh+=("${ROUTEROS_USER}@${ROUTEROS_HOST}")
 
-  routeros_scp=(
-    scp
-    -q
-    -P "${ROUTEROS_SSH_PORT}"
-    -i "${ROUTEROS_PRIVATE_KEY}"
-    "${extra_options[@]}"
-  )
+  routeros_scp=(scp)
+  routeros_scp+=(-q)
+  routeros_scp+=(-P "${ROUTEROS_SSH_PORT}")
+  routeros_scp+=(-i "${ROUTEROS_PRIVATE_KEY}")
+  routeros_scp+=("${extra_options[@]}")
 }
 
 ## @fn verify_connection()

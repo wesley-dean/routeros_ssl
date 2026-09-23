@@ -29,10 +29,9 @@ See [ADR-002](ADR-002-adopt-make-and-bashdeps-boundary.md).
 ### ADR-003: Preserve Public Entry Point and Single-Artifact Distribution
 
 The root `letsencrypt-routeros.bash` remains the public entry point for direct
-execution, sourcing, raw download, and container use.  ADR-006 supersedes the
-older decision that the root file is maintained source; it is now a generated
-compatibility artifact.  The single `dist/` artifact plus SHA-256 release
-contract remains in force until the three-flavor work supersedes it.
+execution, sourcing, raw download, and container use.  ADR-006 superseded the
+source-layout portion, and ADR-007 now supersedes the former single-artifact
+release contract.
 
 See [ADR-003](ADR-003-preserve-entry-point-and-single-artifact-distribution.md).
 
@@ -59,14 +58,25 @@ See [ADR-005](ADR-005-use-bats-characterization-tests-with-tap-output.md).
 
 ### ADR-006: Embed bashlog and Harden Runtime Boundaries
 
-Maintained application source moves to `src/`, while the historical root path
-becomes a deterministic generated compatibility artifact containing pinned
-bashlog v0.0.18.  SSH/SCP use argv arrays, RouterOS-interpolated identifiers
-cross a conservative validation boundary, and reusable functions return status
-without terminating sourcing shells.  Cleanup is explicit after partial
-workflow failures, with primary failure categories preserved.
+Maintained application source lives under `src/`, while the historical root
+path is a deterministic generated compatibility artifact.  SSH/SCP use argv
+arrays, RouterOS-interpolated identifiers cross a conservative validation
+boundary, reusable functions return status, and cleanup is explicit after
+partial failures.  ADR-007 supersedes only its temporary single-artifact
+packaging details.
 
 See [ADR-006](ADR-006-embed-bashlog-and-harden-runtime-boundaries.md).
+
+### ADR-007: Adopt Three-Flavor Distribution Artifacts
+
+The build now produces documented development, comment-stripped ordinary, and
+minified standalone Bash artifacts, each with an adjacent SHA-256 file.  The
+three files form one development-to-ordinary-to-minified transformation chain,
+and the root compatibility artifact corresponds to the ordinary flavor with
+stable provenance.  Releases use a validate-then-publish boundary so privileged
+publication consumes the exact six previously tested bytes.
+
+See [ADR-007](ADR-007-adopt-three-flavor-distribution-artifacts.md).
 
 <!-- adrctl-generated-footer -->
 
@@ -78,3 +88,4 @@ See [ADR-006](ADR-006-embed-bashlog-and-harden-runtime-boundaries.md).
 * [ADR-004: Generate Reference Documentation and ADR Inventory](ADR-004-generate-reference-documentation-and-adr-inventory.md)
 * [ADR-005: Use Bats Characterization Tests with TAP Output](ADR-005-use-bats-characterization-tests-with-tap-output.md)
 * [ADR-006: Embed bashlog and Harden Runtime Boundaries](ADR-006-embed-bashlog-and-harden-runtime-boundaries.md)
+* [ADR-007: Adopt Three-Flavor Distribution Artifacts](ADR-007-adopt-three-flavor-distribution-artifacts.md)

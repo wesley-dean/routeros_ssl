@@ -5,8 +5,11 @@ PROJECT_NAME := routeros_ssl
 SOURCE_SCRIPT := src/letsencrypt-routeros.bash
 SCRIPT := letsencrypt-routeros.bash
 DIST_DIR := dist
-DIST_SCRIPT := $(DIST_DIR)/$(SCRIPT)
-DIST_CHECKSUM := $(DIST_SCRIPT).sha256
+DIST_DEV_SCRIPT := $(DIST_DIR)/letsencrypt-routeros.dev.bash
+DIST_SCRIPT := $(DIST_DIR)/letsencrypt-routeros.bash
+DIST_MIN_SCRIPT := $(DIST_DIR)/letsencrypt-routeros.min.bash
+DIST_SCRIPTS := $(DIST_DEV_SCRIPT) $(DIST_SCRIPT) $(DIST_MIN_SCRIPT)
+DIST_CHECKSUMS := $(addsuffix .sha256,$(DIST_SCRIPTS))
 
 VENDOR_DIR := vendor
 DEPENDENCY_MANIFEST := dependencies.txt
@@ -18,10 +21,11 @@ ADRCTL := $(VENDOR_DIR)/adrctl.bash
 ADR_INDEX_FILE := doc/adr/README.md
 ADR_INDEX_MARKER := <!-- adrctl-generated-footer -->
 BASH_DOXYGEN := $(VENDOR_DIR)/doxygen-bash.awk
-BASHLOG := $(VENDOR_DIR)/bashlog.bash
+BASHLOG_DEV := $(VENDOR_DIR)/bashlog.dev.bash
+BASHLOG_VERSION := 0.0.18
+BASH_MINIFIER := $(VENDOR_DIR)/bash-minifier.bash
 DOCS_OUTPUT := doc/reference
 TEST_DIR := tests
-TEST_SCRIPT ?= $(SCRIPT)
 
 VERSION ?= 0.0.0-dev
 BUILD_COMMIT ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || printf 'unknown')
@@ -166,9 +170,9 @@ docs:
 docs-clean:
 	rm -rf "$(DOCS_OUTPUT)"
 
-build: $(DIST_SCRIPT) $(DIST_CHECKSUM) $(SCRIPT)
+build: $(DIST_SCRIPTS) $(DIST_CHECKSUMS) $(SCRIPT)
 
-$(DIST_SCRIPT): FORCE $(SOURCE_SCRIPT) $(BASHLOG)
+$(DIST_DEV_SCRIPT): FORCE $(SOURCE_SCRIPT) $(BASHLOG_DEV)
 	@mkdir -p "$(DIST_DIR)"
 	@tmp="$@.tmp"; \
 	trap 'rm -f "$$tmp"' EXIT; \
@@ -181,25 +185,14 @@ $(DIST_SCRIPT): FORCE $(SOURCE_SCRIPT) $(BASHLOG)
 		printf '%s\n' '# Build date: $(BUILD_DATE)'; \
 		printf '%s\n' '# Build commit: $(BUILD_COMMIT)'; \
 		printf '%s\n' '# Maintained source: $(SOURCE_SCRIPT)'; \
-		printf '%s\n' '# Embedded dependency: bashlog.bash v0.0.18'; \
+		printf '%s\n' '# Embedded dependency: bashlog.dev.bash v$(BASHLOG_VERSION)'; \
 		printf '\n'; \
 		printf 'ROUTEROS_SSL_PROJECT_NAME=%q\n' "$(PROJECT_NAME)"; \
 		printf 'ROUTEROS_SSL_VERSION=%q\n' "$(VERSION)"; \
 		printf 'ROUTEROS_SSL_BUILD_DATE=%q\n' "$(BUILD_DATE)"; \
 		printf 'ROUTEROS_SSL_BUILD_COMMIT=%q\n' "$(BUILD_COMMIT)"; \
 		printf '\n'; \
-		mapfile -t dependency_lines <"$(BASHLOG)"; \
-		dependency_start=1; \
-		while (( dependency_start < $${#dependency_lines[@]} )) && [[ -z "$${dependency_lines[dependency_start]}" ]]; do \
-			dependency_start=$$((dependency_start + 1)); \
-		done; \
-		dependency_end=$$(($${#dependency_lines[@]} - 1)); \
-		while (( dependency_end >= dependency_start )) && [[ -z "$${dependency_lines[dependency_end]}" ]]; do \
-			dependency_end=$$((dependency_end - 1)); \
-		done; \
-		for ((i = dependency_start; i <= dependency_end; i++)); do \
-			printf '%s\n' "$${dependency_lines[i]}"; \
-		done; \
+		{ IFS= read -r _; while IFS= read -r line || [[ -n "$$line" ]]; do printf '%s\n' "$$line"; done; } <"$(BASHLOG_DEV)"; \
 		printf '\n'; \
 		{ IFS= read -r _; while IFS= read -r line || [[ -n "$$line" ]]; do printf '%s\n' "$$line"; done; } <"$(SOURCE_SCRIPT)"; \
 	} >"$$tmp"; \
@@ -208,30 +201,53 @@ $(DIST_SCRIPT): FORCE $(SOURCE_SCRIPT) $(BASHLOG)
 	mv "$$tmp" "$@"; \
 	trap - EXIT
 
-$(DIST_CHECKSUM): $(DIST_SCRIPT)
-	@cd "$(DIST_DIR)"; \
-	tmp="$(SCRIPT).sha256.tmp"; \
+$(DIST_SCRIPT): $(DIST_DEV_SCRIPT)
+	@tmp="$@.tmp"; \
 	trap 'rm -f "$$tmp"' EXIT; \
+	first=true; \
+	while IFS= read -r line || [[ -n "$$line" ]]; do \
+		if $$first; then \
+			printf '%s\n' "$$line"; \
+			first=false; \
+			continue; \
+		fi; \
+		if [[ "$$line" =~ ^[[:space:]]*# ]]; then \
+			continue; \
+		fi; \
+		printf '%s\n' "$$line"; \
+	done <"$<" >"$$tmp"; \
+	chmod 0755 "$$tmp"; \
+	bash -n "$$tmp"; \
+	mv "$$tmp" "$@"; \
+	trap - EXIT
+
+$(DIST_MIN_SCRIPT): $(DIST_SCRIPT) $(BASH_MINIFIER)
+	@tmp="$@.tmp"; \
+	trap 'rm -f "$$tmp"' EXIT; \
+	bash "$(BASH_MINIFIER)" -F <"$(DIST_SCRIPT)" >"$$tmp"; \
+	chmod 0755 "$$tmp"; \
+	bash -n "$$tmp"; \
+	mv "$$tmp" "$@"; \
+	trap - EXIT
+
+$(DIST_DIR)/%.bash.sha256: $(DIST_DIR)/%.bash
+	@digest=''; \
 	if command -v sha256sum >/dev/null 2>&1; then \
-		sha256sum "$(SCRIPT)" >"$$tmp"; \
+		read -r digest _ < <(sha256sum "$<"); \
 	elif command -v shasum >/dev/null 2>&1; then \
-		read -r digest _ < <(shasum -a 256 "$(SCRIPT)"); \
-		printf '%s  %s\n' "$$digest" "$(SCRIPT)" >"$$tmp"; \
+		read -r digest _ < <(shasum -a 256 "$<"); \
 	else \
 		printf '%s\n' 'No SHA-256 command is available for build checksums' >&2; \
 		exit 1; \
 	fi; \
-	mv "$$tmp" "$(SCRIPT).sha256"; \
-	trap - EXIT
+	printf '%s  %s\n' "$$digest" "$(notdir $<)" >"$@.tmp"; \
+	mv "$@.tmp" "$@"
 
 $(SCRIPT): $(DIST_SCRIPT)
 	@tmp="$@.tmp"; \
 	trap 'rm -f "$$tmp"' EXIT; \
 	while IFS= read -r line || [[ -n "$$line" ]]; do \
 		case "$$line" in \
-			'# Version: '*) printf '%s\n' '# Version: $(COMPAT_VERSION)' ;; \
-			'# Build date: '*) printf '%s\n' '# Build date: $(COMPAT_BUILD_DATE)' ;; \
-			'# Build commit: '*) printf '%s\n' '# Build commit: $(COMPAT_BUILD_COMMIT)' ;; \
 			ROUTEROS_SSL_VERSION=*) printf 'ROUTEROS_SSL_VERSION=%q\n' "$(COMPAT_VERSION)" ;; \
 			ROUTEROS_SSL_BUILD_DATE=*) printf 'ROUTEROS_SSL_BUILD_DATE=%q\n' "$(COMPAT_BUILD_DATE)" ;; \
 			ROUTEROS_SSL_BUILD_COMMIT=*) printf 'ROUTEROS_SSL_BUILD_COMMIT=%q\n' "$(COMPAT_BUILD_COMMIT)" ;; \
@@ -246,15 +262,15 @@ $(SCRIPT): $(DIST_SCRIPT)
 check: build
 	bash -n "$(SOURCE_SCRIPT)"
 	bash -n "$(SCRIPT)"
-	bash -n "$(DIST_SCRIPT)"
+	@for artifact in $(DIST_SCRIPTS); do bash -n "$$artifact"; done
 	bash -n "$(TEST_DIR)/test_helper.bash"
 
 test: build
-	@command -v bats >/dev/null 2>&1 || { \
-		printf '%s\n' 'bats is required to run characterization tests' >&2; \
-		exit 1; \
-	}
-	ROUTEROS_SSL_UNDER_TEST="$(abspath $(TEST_SCRIPT))" bats --tap "$(TEST_DIR)"
+	@set -e; \
+	for artifact in "$(SCRIPT)" $(DIST_SCRIPTS); do \
+		printf 'Testing %s\n' "$$artifact"; \
+		ROUTEROS_SSL_UNDER_TEST="$(CURDIR)/$$artifact" bats --tap "$(TEST_DIR)"; \
+	done
 
 clean: docs-clean
 	rm -rf "$(DIST_DIR)"
