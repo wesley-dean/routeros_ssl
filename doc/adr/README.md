@@ -102,6 +102,15 @@ and durable pull-request comments and never executes pull-request code.
 
 See [ADR-009](ADR-009-publish-derivative-junit-test-reports-while-preserving-tap.md).
 
+### ADR-010: Consolidate GitHub Actions Dependabot Version Updates
+
+Routine GitHub Actions version updates use one weekly wildcard group for
+eligible major, minor, and patch versions with a seven-day cooldown.
+Security updates remain separate and major-containing groups are held
+for manual review without changing RouterOS or release boundaries.
+
+See [ADR-010](ADR-010-consolidate-github-actions-dependabot-maintenance.md).
+
 <!-- adrctl-generated-footer -->
 
 ## Architecture Decision Records
@@ -115,3 +124,4 @@ See [ADR-009](ADR-009-publish-derivative-junit-test-reports-while-preserving-tap
 * [ADR-007: Adopt Three-Flavor Distribution Artifacts](ADR-007-adopt-three-flavor-distribution-artifacts.md)
 * [ADR-008: Publish Generated Reference Documentation Through GitHub Pages](ADR-008-publish-generated-reference-documentation-through-github-pages.md)
 * [ADR-009: Publish Derivative JUnit Test Reports While Preserving TAP](ADR-009-publish-derivative-junit-test-reports-while-preserving-tap.md)
+* [ADR-010: Consolidate GitHub Actions Dependabot Version Updates](ADR-010-consolidate-github-actions-dependabot-maintenance.md)

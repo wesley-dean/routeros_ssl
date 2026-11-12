@@ -385,6 +385,17 @@ Imported standards are managed as a complete external snapshot and should not
 be edited locally.  Repository-specific architectural decisions are recorded
 under `doc/adr/`.
 
+## Dependabot Maintenance
+
+Routine GitHub Actions version updates remain weekly, now with a seven-day
+cooldown and one `actions-version-updates` group for eligible major, minor,
+and patch versions. Security updates remain separate. Groups with any major
+upgrade require targeted manual review and remain outside the current
+non-major-only auto-merge route. Existing Dependabot PRs are not automatically
+superseded. This policy does not change RouterOS commands, SSH permissions,
+certificate handling, published artifacts, or workflow credentials. See
+[ADR-010](doc/adr/ADR-010-consolidate-github-actions-dependabot-maintenance.md).
+
 ## Very Special Thanks
 
 This script was based on the file work by [kiprox](https://github.com/kiprox)

@@ -9,9 +9,11 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
-      minor-and-patch:
+      # Routine versions only: eligible major/minor/patch; security fixes separate.
+      actions-version-updates:
         applies-to: version-updates
-        update-types:
-          - "minor"
-          - "patch"
+        patterns:
+          - "*"
