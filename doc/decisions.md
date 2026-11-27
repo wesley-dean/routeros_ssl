@@ -102,3 +102,9 @@ RouterOS runtime, artifact, and CI trust boundaries and does not
 automatically close existing Dependabot PRs.
 
 See [ADR-010](adr/ADR-010-consolidate-github-actions-dependabot-maintenance.md).
+
+## ADR-011: Migrate Routine Dependency Updates to Renovate
+
+Routine dependency version updates move from Dependabot to the centrally managed Jenkins Renovate service. The repository keeps a minimal `renovate.json`, removes routine Dependabot scheduling, and preserves independent GitHub security-update handling and existing review gates. This decision supersedes ADR-010 only for its scheduled Dependabot maintenance contract; replacement update PRs still require ordinary validation.
+
+See [ADR-011](adr/ADR-011-migrate-routine-dependency-updates-to-renovate.md).
